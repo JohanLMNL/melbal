@@ -13,7 +13,7 @@ export default function Document() {
           href='/manifest.json'
         />
 
-        {/* Icônes pour la PWA */}
+        {/* Lien vers les icônes */}
         <link
           rel='icon'
           href='/android/android-launchericon-192-192.png'
@@ -23,10 +23,10 @@ export default function Document() {
           href='/android/android-launchericon-512-512.png'
         />
 
-        {/* Meta tags spécifiques à la PWA */}
+        {/* Meta tags pour PWA */}
         <meta
           name='theme-color'
-          content='#000000'
+          content='#FFFFFF'
         />
         <meta
           name='description'
