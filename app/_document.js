@@ -23,7 +23,7 @@ export default function Document() {
           href='/android/android-launchericon-512-512.png'
         />
 
-        {/* Meta tags pour PWA */}
+        {/* Meta tags pour la PWA */}
         <meta
           name='theme-color'
           content='#FFFFFF'
