@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import MenuBar from '../../../components/layouts/MenuBar';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { SubmitButton } from '@/app/login/submit-button';
+import { Button } from '@/components/ui/button';
 import {
   RadioGroup,
   RadioGroupItem,
@@ -239,7 +239,7 @@ const Page = () => {
               }
             />
           )}
-          <SubmitButton
+          <Button
             type='submit'
             className='mt-4 w-80 flex gap-3 h-10'
             pendingText='Ajout en cours...'
@@ -250,7 +250,7 @@ const Page = () => {
               size={18}
               strokeWidth={1}
             />
-          </SubmitButton>
+          </Button>
         </div>
       </form>
     </div>
