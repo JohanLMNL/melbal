@@ -23,6 +23,15 @@
       "@/*": ["./*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "app/dashboard/page.jsx", "app/login/submit-button.tsx", "components/ui/datePicker.tsx", "app/login/page.jsx", "app/page.jsx"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "app/dashboard/page.jsx",
+    "components/ui/datePicker.tsx",
+    "app/login/page.jsx",
+    "app/page.jsx"
+  ],
   "exclude": ["node_modules"]
 }
