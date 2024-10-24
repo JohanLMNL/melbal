@@ -43,10 +43,12 @@ export interface ButtonProps
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : 'button';
+
+    // Vérification du type du composant pour s'assurer que "ref" est compatible uniquement avec "button"
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
-        ref={asChild ? undefined : ref} // Si "asChild", ref est ignoré
+        ref={asChild ? undefined : ref} // "ref" seulement si pas d'enfant personnalisé
         {...props}
       />
     );
