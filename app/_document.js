@@ -6,20 +6,13 @@ export default function Document() {
     <Html lang='fr'>
       <Head>
         <link
-          rel='manifest'
-          href='/manifest.json'
+          rel='preconnect'
+          href='https://fonts.googleapis.com'
         />
         <link
-          rel='icon'
-          href='/android/android-lauchericon-192-192.png'
-        />
-        <meta
-          name='theme-color'
-          content='#09090B'
-        />
-        <meta
-          name='description'
-          content="Gestion Réservations Melkior - Bal'tazar"
+          rel='preconnect'
+          href='https://fonts.gstatic.com'
+          crossOrigin='true'
         />
       </Head>
       <body>
