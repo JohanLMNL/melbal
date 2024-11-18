@@ -21,6 +21,10 @@ export default function RootLayout({
           rel='manifest'
           href='/manifest.json'
         />
+        <link
+          rel='apple-touch-icon'
+          href='/ios/100.png'
+        />
       </head>
       <body className='dark bg-zinc-950 text-zinc-50'>
         {children}
