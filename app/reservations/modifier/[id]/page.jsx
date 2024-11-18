@@ -32,10 +32,11 @@ import {
 } from '../../../../utils/supabase/reservation';
 import { useRouter, useParams } from 'next/navigation';
 import DrawerPlan from '../../../../components/reservations/DrawerPlan';
+import Cookies from 'js-cookie';
 
 const ModifierResa = () => {
   const router = useRouter();
-  const { id } = useParams(); // Utilisation de useParams pour obtenir l'ID
+  const { id } = useParams();
 
   const [formData, setFormData] = useState({
     salle: '',
@@ -51,6 +52,7 @@ const ModifierResa = () => {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(null); // Nouvelle variable pour gérer les erreurs
 
   useEffect(() => {
     if (id) {
@@ -75,7 +77,7 @@ const ModifierResa = () => {
       };
       fetchData();
     }
-  }, [id]); // Ajout de id comme dépendance
+  }, [id]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -94,6 +96,8 @@ const ModifierResa = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
+    setError(null); // Réinitialiser l'erreur au début de la soumission
 
     if (
       !formData.nom ||
@@ -102,27 +106,32 @@ const ModifierResa = () => {
       !formData.salle
     ) {
       alert('Veuillez remplir tous les champs obligatoires.');
+      setIsSubmitting(false);
       return;
     }
 
-    setIsSubmitting(true);
-
     try {
-      const result = await updateResaById(id, formData); // Utilisation de la fonction update
+      console.log('Submitting formData:', formData); // Debugging log
+
+      const result = await updateResaById(id, formData);
 
       if (result) {
+        Cookies.set('selectedReservationDate', formData.date, {
+          expires: 7,
+          path: '/',
+        });
         router.push('/reservations');
       } else {
-        alert(
+        setError(
           'Une erreur est survenue lors de la modification de la réservation.'
         );
       }
     } catch (error) {
       console.error(
-        'Erreur lors de la modification de la réservation :',
+        'Erreur lors de la modification de la réservation:',
         error
       );
-      alert(
+      setError(
         'Une erreur inattendue est survenue. Veuillez réessayer.'
       );
     } finally {
@@ -136,7 +145,7 @@ const ModifierResa = () => {
       router.push('/reservations');
     } catch (error) {
       console.error(
-        'Erreur lors de la suppression de la réservation :',
+        'Erreur lors de la suppression de la réservation:',
         error
       );
       alert(
@@ -145,11 +154,19 @@ const ModifierResa = () => {
     }
   };
 
+  const handleBack = () => {
+    Cookies.set('selectedReservationDate', formData.date, {
+      expires: 7,
+      path: '/',
+    });
+    router.push('/reservations');
+  };
+
   return (
     <div className='flex flex-col items-center justify-center overflow-x-hidden'>
       <MenuBar />
       <h2 className='mt-2 font-bold text-lg lg:mb-5'>
-        Modifer la réservation
+        Modifier la réservation
       </h2>
 
       <form
@@ -179,9 +196,8 @@ const ModifierResa = () => {
             </div>
           </RadioGroup>
         </div>
-        {/* TOUT LES INPUTS */}
+
         <div className='flex flex-col gap-2 justify-center items-center lg:flex-row lg:gap-8'>
-          {/* // GROUPE 1 */}
           <div className='flex flex-col justify-center items-start gap-2'>
             <Label htmlFor='nom'>Nom</Label>
             <Input
@@ -209,9 +225,7 @@ const ModifierResa = () => {
               required
             />
           </div>
-          {/* //GROUPE 2 */}
           <div className='flex flex-col justify-center items-start gap-2'>
-            {/* DATE & HEURE */}
             <div className='flex items-center justify-center gap-6 mt-2'>
               <div className='flex flex-col gap-3 items-start'>
                 <Label htmlFor='date'>Date</Label>
@@ -245,7 +259,6 @@ const ModifierResa = () => {
                 onChange={handleChange}
               />
             </div>
-            {/* ACOMPTE & TABLE */}
             <div className='flex items-center justify-center gap-6 mt-2'>
               <div className='flex flex-col gap-2'>
                 <Label htmlFor='acompte'>Acompte</Label>
@@ -261,7 +274,7 @@ const ModifierResa = () => {
                 <Label htmlFor='table'>Table</Label>
                 <Input
                   className='w-36'
-                  type='number'
+                  type='text'
                   name='table'
                   value={formData.table}
                   onChange={handleChange}
@@ -270,13 +283,19 @@ const ModifierResa = () => {
             </div>
           </div>
         </div>
+
         <div className='flex flex-col items-center justify-center'>
           <p className='font-thin'>Ajouter par :</p>
           <p className='font-bold'>{formData.AddBy}</p>
         </div>
+
         <div className='flex flex-col items-center justify-center'>
           <div className='flex items-center justify-center gap-8'>
-            <Button className='mt-4 w-36 flex gap-2 h-10'>
+            <Button
+              className='mt-4 w-36 flex gap-2 h-10'
+              onClick={handleBack}
+              type='button' // changed to prevent form submission on back
+            >
               <ChevronLeftIcon
                 size={18}
                 strokeWidth={1}
@@ -322,7 +341,7 @@ const ModifierResa = () => {
                       <ChevronLeftIcon
                         size={18}
                         strokeWidth={1}
-                      />
+                      />{' '}
                       Retour
                     </Button>
                   </AlertDialogCancel>
@@ -331,7 +350,7 @@ const ModifierResa = () => {
                       variant={'destructive'}
                       className='w-28 h-9'
                     >
-                      Supprimer{'  '}
+                      Supprimer{' '}
                       <Trash2Icon
                         size={18}
                         strokeWidth={1}
@@ -342,6 +361,7 @@ const ModifierResa = () => {
               </AlertDialogContent>
             </AlertDialog>
           </div>
+
           {formData.salle && (
             <DrawerPlan
               title={
@@ -349,11 +369,12 @@ const ModifierResa = () => {
               }
               image={
                 formData.salle == 'melkior'
-                  ? '/plansdeSalle/PlanTableMelkior.svg'
-                  : '/plansdeSalle/PlanTableBalta.svg'
+                  ? '/plansdeSalle/PlanTableMelkiorpng.png'
+                  : '/plansdeSalle/PlanTableBaltapng.png'
               }
             />
           )}
+
           <Button
             type='submit'
             className='mt-4 w-80 flex gap-3 h-10'
@@ -365,6 +386,9 @@ const ModifierResa = () => {
               strokeWidth={1}
             />
           </Button>
+
+          {/* Message d'erreur */}
+          {error && <div className='text-red-500 mt-2'>{error}</div>}
         </div>
       </form>
     </div>

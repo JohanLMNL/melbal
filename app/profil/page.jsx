@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import Cookies from 'js-cookie';
-import { supabase } from '../../utils/supabase/supabaseClient'; // Assurez-vous que ce chemin est correct
+import { supabase } from '../../utils/supabase/supabaseClient';
 
 const ProfilePage = () => {
   const [prenom, setPrenom] = useState('');
@@ -13,7 +13,7 @@ const ProfilePage = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [message, setMessage] = useState(null);
-  const [messageType, setMessageType] = useState(null); // Ajout de messageType pour succès/erreur
+  const [messageType, setMessageType] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -53,10 +53,10 @@ const ProfilePage = () => {
       });
 
       setMessage('Profil mis à jour avec succès !');
-      setMessageType('success'); // Définir messageType sur succès
+      setMessageType('success');
     } catch (error) {
       setMessage('Erreur lors de la mise à jour du profil.');
-      setMessageType('error'); // Définir messageType sur erreur
+      setMessageType('error');
     } finally {
       setLoading(false);
     }
@@ -67,9 +67,19 @@ const ProfilePage = () => {
     setLoading(true);
     setMessage(null);
 
+    // Vérification de la longueur du nouveau mot de passe
+    if (newPassword.length < 6) {
+      setMessage(
+        'Le nouveau mot de passe doit comporter au moins 6 caractères.'
+      );
+      setMessageType('error');
+      setLoading(false);
+      return;
+    }
+
     if (newPassword !== confirmNewPassword) {
       setMessage('Les nouveaux mots de passe ne correspondent pas.');
-      setMessageType('error'); // Définir messageType sur erreur
+      setMessageType('error');
       setLoading(false);
       return;
     }
@@ -85,10 +95,10 @@ const ProfilePage = () => {
       }
 
       setMessage('Mot de passe mis à jour avec succès !');
-      setMessageType('success'); // Définir messageType sur succès
+      setMessageType('success');
     } catch (error) {
       setMessage('Erreur lors de la mise à jour du mot de passe.');
-      setMessageType('error'); // Définir messageType sur erreur
+      setMessageType('error');
     } finally {
       setLoading(false);
     }

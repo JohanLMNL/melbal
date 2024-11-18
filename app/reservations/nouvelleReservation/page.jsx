@@ -216,7 +216,7 @@ const Page = () => {
                 <Label htmlFor='table'>Table</Label>
                 <Input
                   className='w-36'
-                  type='number'
+                  type='text'
                   name='table'
                   value={formData.table}
                   onChange={handleChange}
@@ -234,8 +234,8 @@ const Page = () => {
               }
               image={
                 formData.salle == 'melkior'
-                  ? '/plansdeSalle/PlanTableMelkior.svg'
-                  : '/plansdeSalle/PlanTableBalta.svg'
+                  ? '/plansdeSalle/PlanTableMelkiorpng.png'
+                  : '/plansdeSalle/PlanTableBaltapng.png'
               }
             />
           )}

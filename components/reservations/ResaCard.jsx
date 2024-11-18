@@ -7,10 +7,17 @@ import {
 } from '@/utils/transformDateandHour';
 
 const ResaCard = (props) => {
+  // Déterminer l'affichage de la table
+  const displayTable = props.table
+    ? props.table.length > 2
+      ? `${props.table.slice(0, 2)}...`
+      : props.table
+    : '-';
+
   return (
     <div>
       <Card className='bg-transparent flex w-96 h-28'>
-        <CardContent className=' w-96 h-28 flex items-center justify-between p-5'>
+        <CardContent className='w-96 h-28 flex items-center justify-between p-5'>
           <div className='flex flex-col items-center gap-2'>
             <div className='h-10 w-10 bg-transparent rounded flex items-center justify-center'>
               {props.salle === 'melkior' ? (
@@ -41,13 +48,11 @@ const ResaCard = (props) => {
             <div className='text-lg font-bold uppercase'>
               {props.nom}
             </div>
-            <div
-              className='font-thin
-              text-sm'
-            >
+            <div className='font-thin text-sm'>
               {props.nombre} Personnes
             </div>
           </div>
+
           <div className='flex flex-col items-center gap-2'>
             {props.acompte !== 0 &&
               props.acompte !== null &&
@@ -59,7 +64,7 @@ const ResaCard = (props) => {
               )}
 
             <div className='h-10 w-10 bg-zinc-200 rounded border-2 border-zinc-800 text-zinc-800 font-bold flex items-center justify-center'>
-              {props.table != null ? props.table : '-'}
+              {displayTable}
             </div>
           </div>
         </CardContent>

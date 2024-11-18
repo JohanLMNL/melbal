@@ -21,17 +21,25 @@ import {
 } from '@/components/ui/alert-dialog';
 import DatePicker from '../../components/ui/datePicker';
 import { PlusIcon, PrinterIcon, ChevronLeftIcon } from 'lucide-react';
+import Cookies from 'js-cookie';
 
 const Reservations = () => {
-  const [isMounted, setIsMounted] = useState(false); // Nouveau state pour vérifier si le composant est monté
+  const [isMounted, setIsMounted] = useState(false);
   const [dateDeTri, setDateDeTri] = useState(undefined);
   const [searchTerm, setSearchTerm] = useState('');
   const [melkior, setMelkior] = useState(true);
   const [baltazar, setBaltazar] = useState(true);
 
-  // Utiliser useEffect pour vérifier si le composant est monté
   useEffect(() => {
     setIsMounted(true);
+
+    // Lire la date depuis le cookie lors du montage
+    const savedDate = Cookies.get('selectedReservationDate');
+    if (savedDate) {
+      setDateDeTri(new Date(savedDate));
+      // Supprimer le cookie après l'avoir utilisé
+      Cookies.remove('selectedReservationDate');
+    }
   }, []);
 
   const handleDateChange = useCallback((date) => {
@@ -42,9 +50,8 @@ const Reservations = () => {
     setSearchTerm(event.target.value);
   }, []);
 
-  // Protéger le rendu des éléments dynamiques jusqu'à ce que le composant soit monté
   if (!isMounted) {
-    return null; // Ne rien rendre tant que le composant n'est pas monté côté client
+    return null;
   }
 
   return (
@@ -58,7 +65,7 @@ const Reservations = () => {
               src='/logos/LogoMel.svg'
               width={24}
               height={24}
-              alt='Logo Melkior' // Ajout d'une alt pour éviter un avertissement
+              alt='Logo Melkior'
             />
             <Switch
               checked={melkior}
@@ -70,7 +77,7 @@ const Reservations = () => {
               src='/logos/LogoBal.svg'
               width={15}
               height={15}
-              alt='Logo Baltazar' // Ajout d'une alt pour éviter un avertissement
+              alt='Logo Baltazar'
             />
             <Switch
               checked={baltazar}

@@ -81,7 +81,7 @@ const ResaList = ({ dateDeTri, searchTerm, melkior, baltazar }) => {
   }
 
   return (
-    <div className='flex flex-col items-center gap-3 mt-8 lg:flex-row lg:flex-wrap lg:justify-center'>
+    <div className='flex flex-col items-center gap-3 mt-8 lg:flex-row lg:flex-wrap lg:justify-center overflow-y-hidden'>
       {filteredReservations.length === 0 ? (
         <div className='flex flex-col gap-1 items-center justify-center'>
           <FrownIcon
