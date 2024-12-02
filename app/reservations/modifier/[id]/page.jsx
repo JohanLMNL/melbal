@@ -369,8 +369,8 @@ const ModifierResa = () => {
               }
               image={
                 formData.salle == 'melkior'
-                  ? '/plansdeSalle/PlanTableMelkiorpng.png'
-                  : '/plansdeSalle/PlanTableBaltapng.png'
+                  ? '/plansDeSalle/PlanTableMelkiorpng.png'
+                  : '/plansDeSalle/PlanTableBaltapng.png'
               }
             />
           )}
