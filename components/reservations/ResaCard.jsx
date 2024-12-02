@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
+import { Card, CardContent } from '../ui/card';
 import Image from 'next/image';
 import {
   toShortDate,
@@ -7,6 +7,8 @@ import {
 } from '@/utils/transformDateandHour';
 
 const ResaCard = (props) => {
+  console.log('Props:', props); // Vérifier les valeurs des props
+
   // Déterminer l'affichage de la table
   const displayTable = props.table
     ? props.table.length > 2
@@ -14,9 +16,29 @@ const ResaCard = (props) => {
       : props.table
     : '-';
 
+  // Conditions pour les contours spéciaux
+  const isGoldenCase =
+    props.salle === 'baltazar' &&
+    ['VIP', '11', '12', '13', '14'].includes(props.table);
+
+  const isBlueCase =
+    props.salle === 'baltazar' &&
+    ['A', 'B', 'C', 'D', 'E'].includes(props.table);
+
+  // Classes dynamiques forcées
+  let cardClasses = `bg-transparent flex w-96 h-28 !border-2 !border-zinc-800`; // Bordure par défaut
+
+  if (isGoldenCase) {
+    cardClasses = `bg-transparent flex w-96 h-28 !border-3 !border-amber-200`;
+  } else if (isBlueCase) {
+    cardClasses = `bg-transparent flex w-96 h-28 !border-3 !border-blue-200`;
+  }
+
+  console.log('Classes appliquées:', cardClasses); // Vérifier les classes CSS
+
   return (
     <div>
-      <Card className='bg-transparent flex w-96 h-28'>
+      <Card className={cardClasses}>
         <CardContent className='w-96 h-28 flex items-center justify-between p-5'>
           <div className='flex flex-col items-center gap-2'>
             <div className='h-10 w-10 bg-transparent rounded flex items-center justify-center'>
