@@ -170,3 +170,26 @@ export const updateResaById = async (id, updatedData) => {
     return null;
   }
 };
+
+export const getReservationsByDate = async (date) => {
+  try {
+    const { data, error } = await supabase
+      .from('reservations')
+      .select('*')
+      .eq('date', date);
+
+    if (error) {
+      console.error(
+        'Error fetching reservations by date:',
+        error.message
+      );
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error fetching reservations by date:', error);
+    return [];
+  }
+};
+
