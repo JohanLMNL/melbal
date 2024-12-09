@@ -1,6 +1,9 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { getReservationsByDate } from '../../../utils/supabase/reservation';
+import { tablePositionsBySalle } from '../../../utils/tableConfig';
+import { IMAGE_REAL_DIMENSIONS } from '../../../utils/imageConstants';
+import TableButton from '../../../components/reservations/tableButtons';
 import MenuBar from '../../../components/layouts/MenuBar';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -26,9 +29,8 @@ const Page = () => {
     displayedWidth: 0,
     displayedHeight: 0,
   });
-
-  const IMAGE_REAL_WIDTH = 6753; // Largeur réelle de l'image
-  const IMAGE_REAL_HEIGHT = 4433; // Hauteur réelle de l'image
+  const { width: IMAGE_REAL_WIDTH, height: IMAGE_REAL_HEIGHT } =
+    IMAGE_REAL_DIMENSIONS;
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -102,6 +104,19 @@ const Page = () => {
       });
     return occupied;
   };
+
+  const occupiedTables = useMemo(() => {
+    const occupied = new Set();
+    reservations
+      .filter((resa) => resa.salle === formData.salle) // Filtre les réservations pour la salle sélectionnée
+      .forEach((resa) => {
+        if (resa.table) {
+          const tables = resa.table.split(','); // Si plusieurs tables sont utilisées, elles sont séparées par des virgules
+          tables.forEach((table) => occupied.add(table.trim()));
+        }
+      });
+    return occupied;
+  }, [reservations, formData.salle]);
 
   const handleImageLoad = () => {
     if (planRef.current) {
@@ -199,58 +214,7 @@ const Page = () => {
     }
   };
 
-  const tablePositions =
-    formData.salle === 'melkior'
-      ? [
-          { id: '1', x: 6500, y: 3000 },
-          { id: '2', x: 6500, y: 2000 },
-          { id: '3', x: 6500, y: 1000 },
-          { id: '4', x: 5000, y: 1500 },
-          { id: '5', x: 4000, y: 2000 },
-          { id: '6', x: 3600, y: 2200 },
-          { id: '7', x: 3200, y: 2400 },
-          { id: '8', x: 3500, y: 3200 },
-          { id: '9', x: 3900, y: 950 },
-          { id: '10', x: 2500, y: 2200 },
-          { id: '11', x: 1900, y: 2000 },
-          { id: '12', x: 1600, y: 1150 },
-          { id: '13', x: 1100, y: 1380 },
-          { id: '14', x: 600, y: 1680 },
-          { id: '15', x: 600, y: 2200 },
-          { id: '16', x: 600, y: 3200 },
-          { id: '17', x: 300, y: 3700 },
-          { id: '18', x: 1400, y: 4100 },
-          { id: '19', x: 2500, y: 4100 },
-          { id: '20', x: 3200, y: 3400 },
-          { id: '21', x: 2600, y: 3600 },
-          { id: '22', x: 2000, y: 3600 },
-          { id: '23', x: 1400, y: 3600 },
-          { id: '24', x: 1400, y: 3000 },
-          { id: '26', x: 1400, y: 3000 },
-          { id: '27', x: 2000, y: 3000 },
-          { id: '28', x: 2600, y: 3000 },
-        ]
-      : [
-          { id: '1', x: 2300, y: 800 },
-          { id: '2', x: 2400, y: 1200 },
-          { id: '3', x: 2800, y: 950 },
-          { id: 'A', x: 2750, y: 440 },
-          { id: 'B', x: 3200, y: 200 },
-          { id: 'C', x: 3200, y: 600 },
-          { id: '4', x: 3900, y: 350 },
-          { id: '5', x: 3900, y: 850 },
-          { id: '6', x: 4600, y: 850 },
-          { id: '7', x: 4900, y: 270 },
-          { id: '8', x: 5300, y: 850 },
-          { id: '9', x: 5300, y: 2000 },
-          { id: '10', x: 5150, y: 2800 },
-          { id: 'D', x: 4900, y: 1700 },
-          { id: 'E', x: 4800, y: 2200 },
-          { id: '11', x: 3700, y: 1700 },
-          { id: '12', x: 4200, y: 1700 },
-          { id: '13', x: 4200, y: 2100 },
-          { id: '13', x: 4300, y: 2600 },
-        ];
+  const tablePositions = tablePositionsBySalle[formData.salle] || [];
 
   return (
     <div className='flex flex-col items-center justify-center overflow-x-hidden'>
@@ -398,46 +362,25 @@ const Page = () => {
                           (table.y / IMAGE_REAL_HEIGHT) *
                           planDimensions.displayedHeight;
 
-                        // Filtre les réservations uniquement pour la salle sélectionnée
-                        const occupiedTables = getOccupiedTables(
-                          reservations,
-                          formData.salle
-                        );
-
-                        // Vérifie si la table est occupée
                         const isOccupied = occupiedTables.has(
                           table.id
                         );
-
-                        // Vérifie si la table est sélectionnée
                         const isSelected = formData.table.includes(
                           table.id
                         );
 
                         return (
-                          <Button
+                          <TableButton
                             key={table.id}
-                            variant={
-                              isOccupied
-                                ? 'destructive'
-                                : isSelected
-                                ? 'blue'
-                                : 'default'
-                            }
+                            table={table}
+                            displayedX={displayedX}
+                            displayedY={displayedY}
+                            isOccupied={isOccupied}
+                            isSelected={isSelected}
                             onClick={() =>
                               handleTableSelection(table.id)
                             }
-                            className='absolute w-6 h-6 rounded-full text-white'
-                            style={{
-                              top: `${displayedY}px`,
-                              left: `${displayedX}px`,
-                              transform: 'translate(-50%, -50%)',
-                            }}
-                            type='button'
-                            disabled={isOccupied} // Désactiver le bouton si la table est occupée
-                          >
-                            {table.id}
-                          </Button>
+                          />
                         );
                       })}
                     </div>
