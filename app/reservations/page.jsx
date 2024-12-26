@@ -1,5 +1,7 @@
 'use client';
 import React, { useState, useCallback, useEffect } from 'react';
+import { toast } from 'react-toastify';
+import { ToastContainer } from 'react-toastify';
 import Image from 'next/image';
 import MenuBar from '../../components/layouts/MenuBar';
 import ResaList from '../../components/reservations/ResaList';
@@ -42,6 +44,25 @@ const Reservations = () => {
     }
   }, []);
 
+  useEffect(() => {
+    const toastMessage = localStorage.getItem('toastMessage');
+
+    if (toastMessage) {
+      if (toastMessage === 'success') {
+        console.log(
+          'Message toast récupéré depuis localStorage :',
+          toastMessage
+        );
+        toast.success('Réservation ajoutée avec succès !');
+      } else if (toastMessage === 'error') {
+        toast.error(
+          'Une erreur est survenue lors de la réservation.'
+        );
+      }
+      localStorage.removeItem('toastMessage');
+    }
+  }, []);
+
   const handleDateChange = useCallback((date) => {
     setDateDeTri(date);
   }, []);
@@ -56,6 +77,10 @@ const Reservations = () => {
 
   return (
     <div className='flex flex-col items-center justify-center overflow-x-hidden'>
+      <ToastContainer
+        position='top-right'
+        autoClose={3000}
+      />
       <MenuBar />
       <h2 className='mt-2 font-bold text-lg lg:mb-5'>Réservations</h2>
       <div className='flex flex-col items-center justify-center gap-3 mt-2 lg:flex-row'>

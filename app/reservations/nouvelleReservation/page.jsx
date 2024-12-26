@@ -50,6 +50,7 @@ const Page = () => {
   const [reservations, setReservations] = useState([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -170,49 +171,57 @@ const Page = () => {
     });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    if (
-      !formData.nom ||
-      !formData.nombre ||
-      !formData.date ||
-      !formData.salle
-    ) {
-      alert('Veuillez remplir tous les champs obligatoires.');
-      return;
-    }
+  // Validation des champs obligatoires
+  if (
+    !formData.nom ||
+    !formData.nombre ||
+    !formData.date ||
+    !formData.salle
+  ) {
+    setError('Veuillez remplir tous les champs obligatoires.');
+    return;
+  }
 
-    setIsSubmitting(true);
+  setIsSubmitting(true);
+  setError(null); // Réinitialise les erreurs avant de commencer
 
-    try {
-      // Convertir le tableau de tables en chaîne
-      const reservationData = {
-        ...formData,
-        table: formData.table.join(','), // Convertir en chaîne séparée par des virgules
-      };
+  try {
+    // Préparer les données pour la réservation
+    const reservationData = {
+      ...formData,
+      table:
+        formData.table && formData.table.length > 0
+          ? formData.table.join(',')
+          : '', // Utiliser une chaîne vide si aucune table sélectionnée
+    };
 
-      const result = await addReservation(reservationData);
+    // Appel à l'API pour ajouter une réservation
+    const result = await addReservation(reservationData);
 
-      if (result) {
-        router.push('/reservations');
-      } else {
-        alert(
-          "Une erreur est survenue lors de l'ajout de la réservation."
-        );
-      }
-    } catch (error) {
-      console.error(
-        "Erreur lors de l'ajout de la réservation :",
-        error
+    if (result) {
+      // Redirection uniquement si succès
+      router.push('/reservations');
+    } else {
+      setError(
+        "Une erreur est survenue lors de l'ajout de la réservation."
       );
-      alert(
-        'Une erreur inattendue est survenue. Veuillez réessayer.'
-      );
-    } finally {
-      setIsSubmitting(false);
     }
-  };
+  } catch (error) {
+    console.error(
+      'Erreur lors de l’ajout de la réservation :',
+      error
+    );
+    setError(
+      'Une erreur inattendue est survenue. Veuillez réessayer.'
+    );
+  } finally {
+    setIsSubmitting(false); // Réinitialiser l'état du bouton de soumission
+  }
+};
+
 
   const tablePositions = tablePositionsBySalle[formData.salle] || [];
 
@@ -409,6 +418,11 @@ const Page = () => {
               strokeWidth={1}
             />
           </Button>
+          {error && (
+            <div className='bg-red-500 text-white p-4 rounded mb-4 mt-4'>
+              {error}
+            </div>
+          )}
         </div>
       </form>
     </div>

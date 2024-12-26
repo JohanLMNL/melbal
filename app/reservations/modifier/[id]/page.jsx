@@ -1,83 +1,122 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import {
+  fetchResaById,
+  getReservationsByDate,
+  updateResaById,
+  deleteResaById,
+} from '../../../../utils/supabase/reservation';
+import { tablePositionsBySalle } from '../../../../utils/tableConfig';
+import { IMAGE_REAL_DIMENSIONS } from '../../../../utils/imageConstants';
+import TableButton from '../../../../components/reservations/tableButtons';
 import MenuBar from '../../../../components/layouts/MenuBar';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { PlusIcon, Trash2Icon, ChevronLeftIcon } from 'lucide-react';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import {
-  RadioGroup,
-  RadioGroupItem,
-} from '@/components/ui/radio-group';
-import {
-  PenLineIcon,
-  ChevronLeftIcon,
-  Trash2Icon,
-  TriangleAlertIcon,
-} from 'lucide-react';
-import {
-  fetchResaById,
-  updateResaById,
-  deleteResaById,
-} from '../../../../utils/supabase/reservation';
-import { useRouter, useParams } from 'next/navigation';
-import DrawerPlan from '../../../../components/reservations/DrawerPlan';
-import Cookies from 'js-cookie';
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+} from '@radix-ui/react-dialog';
+import Cookies from 'js-cookie'; // Importer js-cookie
 
-const ModifierResa = () => {
+const EditReservationPage = () => {
+  const { id: reservationId } = useParams(); // Récupérer l'ID de la réservation depuis l'URL
   const router = useRouter();
-  const { id } = useParams();
+
+  const planRef = useRef(null);
+  const [planDimensions, setPlanDimensions] = useState({
+    displayedWidth: 0,
+    displayedHeight: 0,
+  });
+  const { width: IMAGE_REAL_WIDTH, height: IMAGE_REAL_HEIGHT } =
+    IMAGE_REAL_DIMENSIONS;
 
   const [formData, setFormData] = useState({
     salle: '',
     nom: '',
     tel: '',
     nombre: '',
-    date: new Date().toISOString().split('T')[0],
-    heure: '',
+    date: '',
+    heure: null,
     commentaire: '',
     acompte: '',
-    table: '',
-    AddBy: '',
+    table: [],
   });
 
+  const [reservations, setReservations] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState(null); // Nouvelle variable pour gérer les erreurs
+  const [error, setError] = useState(null);
+
+  // Charger les données de la réservation
+  useEffect(() => {
+    const fetchReservation = async () => {
+      if (!reservationId) return; // Attendre que l'ID soit disponible
+      try {
+        const data = await fetchResaById(reservationId); // Récupérer les données de la réservation
+        setFormData((prevData) => ({
+          ...prevData,
+          ...data,
+          table: data.table ? data.table.split(',') : [], // Convertir la chaîne en tableau pour les tables
+        }));
+      } catch (error) {
+        console.error(
+          'Erreur lors du chargement de la réservation :',
+          error
+        );
+        setError('Impossible de charger la réservation.');
+      }
+    };
+
+    fetchReservation();
+  }, [reservationId]); // Recharger uniquement si l'ID change
+
+  // Charger les réservations de la même date pour les tables occupées
+  useEffect(() => {
+    const fetchReservationsForDate = async () => {
+      try {
+        const data = await getReservationsByDate(formData.date);
+        setReservations(data);
+      } catch (error) {
+        console.error(
+          'Erreur lors de la récupération des réservations :',
+          error
+        );
+      }
+    };
+
+    if (formData.date) fetchReservationsForDate();
+  }, [formData.date]);
 
   useEffect(() => {
-    if (id) {
-      const fetchData = async () => {
-        const reservation = await fetchResaById(id);
-        if (reservation) {
-          setFormData({
-            salle: reservation.salle || '',
-            nom: reservation.nom || '',
-            tel: reservation.tel || '',
-            nombre: reservation.nombre || '',
-            date:
-              reservation.date ||
-              new Date().toISOString().split('T')[0],
-            heure: reservation.heure || null,
-            commentaire: reservation.commentaire || '',
-            acompte: reservation.acompte || '',
-            table: reservation.table || '',
-            AddBy: reservation.AddBy || '',
-          });
-        }
-      };
-      fetchData();
+    if (formData.date) {
+      Cookies.set('selectedReservationDate', formData.date, {
+        expires: 7,
+      }); // Sauvegarde du cookie pour 7 jours
+      console.log('Cookie saveDate mis à jour avec:', formData.date);
     }
-  }, [id]);
+  }, [formData.date]); // Exécute cet effet chaque fois que formData.date change
+
+  const getOccupiedTables = useMemo(() => {
+    const occupied = new Set();
+    reservations
+      .filter(
+        (resa) =>
+          resa.salle === formData.salle && resa.id !== reservationId
+      ) // Exclure la réservation actuelle
+      .forEach((resa) => {
+        if (resa.table) {
+          resa.table
+            .split(',')
+            .forEach((table) => occupied.add(table.trim()));
+        }
+      });
+    return occupied;
+  }, [reservations, formData.salle, reservationId]);
+
+  const occupiedTables = getOccupiedTables; // Mémorisation pour optimisation
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -87,48 +126,57 @@ const ModifierResa = () => {
     }));
   };
 
-  const handleRadioChange = (value) => {
-    setFormData((prevData) => ({
-      ...prevData,
-      salle: value,
-    }));
+  const handleImageLoad = () => {
+    if (planRef.current) {
+      const rect = planRef.current.getBoundingClientRect();
+      setPlanDimensions({
+        displayedWidth: rect.width,
+        displayedHeight: rect.height,
+      });
+    }
+  };
+
+  const handleTableSelection = (tableName) => {
+    setFormData((prevData) => {
+      const isSelected = prevData.table.includes(tableName);
+      const updatedTables = isSelected
+        ? prevData.table.filter((table) => table !== tableName)
+        : [...prevData.table, tableName];
+      return {
+        ...prevData,
+        table: updatedTables,
+      };
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    setError(null); // Réinitialiser l'erreur au début de la soumission
 
+    // Validation des champs obligatoires
     if (
       !formData.nom ||
       !formData.nombre ||
       !formData.date ||
       !formData.salle
     ) {
-      alert('Veuillez remplir tous les champs obligatoires.');
-      setIsSubmitting(false);
+      setError('Veuillez remplir tous les champs obligatoires.');
       return;
     }
 
+    setIsSubmitting(true);
+    setError(null); // Réinitialise les erreurs avant de commencer
+
     try {
-      console.log('Submitting formData:', formData); // Debugging log
+      const updatedData = {
+        ...formData,
+        table: formData.table.join(','), // Convertir les tables en chaîne pour l'envoi
+      };
 
-      const result = await updateResaById(id, formData);
-
-      if (result) {
-        Cookies.set('selectedReservationDate', formData.date, {
-          expires: 7,
-          path: '/',
-        });
-        router.push('/reservations');
-      } else {
-        setError(
-          'Une erreur est survenue lors de la modification de la réservation.'
-        );
-      }
+      await updateResaById(reservationId, updatedData); // Mettre à jour la réservation
+      router.push('/reservations'); // Redirection en cas de succès
     } catch (error) {
       console.error(
-        'Erreur lors de la modification de la réservation:',
+        'Erreur lors de la mise à jour de la réservation :',
         error
       );
       setError(
@@ -141,7 +189,7 @@ const ModifierResa = () => {
 
   const handleDelete = async () => {
     try {
-      const result = await deleteResaById(id);
+      const result = await deleteResaById(reservationId);
       router.push('/reservations');
     } catch (error) {
       console.error(
@@ -154,49 +202,19 @@ const ModifierResa = () => {
     }
   };
 
-  const handleBack = () => {
-    Cookies.set('selectedReservationDate', formData.date, {
-      expires: 7,
-      path: '/',
-    });
-    router.push('/reservations');
-  };
+  const tablePositions = tablePositionsBySalle[formData.salle] || [];
 
   return (
     <div className='flex flex-col items-center justify-center overflow-x-hidden'>
       <MenuBar />
       <h2 className='mt-2 font-bold text-lg lg:mb-5'>
-        Modifier la réservation
+        Modifier Réservation
       </h2>
 
       <form
         className='flex flex-col gap-3 mt-5 w-11/12'
         onSubmit={handleSubmit}
       >
-        <div>
-          <RadioGroup
-            value={formData.salle}
-            onValueChange={handleRadioChange}
-            required
-            className='flex items-center justify-center gap-5'
-          >
-            <div className='flex items-center space-x-2'>
-              <RadioGroupItem
-                value='melkior'
-                id='melkior'
-              />
-              <Label htmlFor='melkior'>Melkior</Label>
-            </div>
-            <div className='flex items-center space-x-2'>
-              <RadioGroupItem
-                value='baltazar'
-                id='baltazar'
-              />
-              <Label htmlFor='baltazar'>Bal'tazar</Label>
-            </div>
-          </RadioGroup>
-        </div>
-
         <div className='flex flex-col gap-2 justify-center items-center lg:flex-row lg:gap-8'>
           <div className='flex flex-col justify-center items-start gap-2'>
             <Label htmlFor='nom'>Nom</Label>
@@ -226,8 +244,8 @@ const ModifierResa = () => {
             />
           </div>
           <div className='flex flex-col justify-center items-start gap-2'>
-            <div className='flex items-center justify-center gap-6 mt-2'>
-              <div className='flex flex-col gap-3 items-start'>
+            <div className='flex justify-center gap-8'>
+              <div className='flex flex-col gap-2'>
                 <Label htmlFor='date'>Date</Label>
                 <Input
                   className='w-36'
@@ -238,7 +256,7 @@ const ModifierResa = () => {
                   required
                 />
               </div>
-              <div className='flex flex-col gap-3 items-start'>
+              <div className='flex flex-col gap-2'>
                 <Label htmlFor='heure'>Heure</Label>
                 <Input
                   className='w-36'
@@ -249,150 +267,128 @@ const ModifierResa = () => {
                 />
               </div>
             </div>
-            <div className='flex flex-col gap-2 items-start'>
-              <Label htmlFor='commentaire'>Commentaire</Label>
-              <Input
-                className='w-80'
-                type='text'
-                name='commentaire'
-                value={formData.commentaire}
-                onChange={handleChange}
-              />
-            </div>
-            <div className='flex items-center justify-center gap-6 mt-2'>
-              <div className='flex flex-col gap-2'>
-                <Label htmlFor='acompte'>Acompte</Label>
-                <Input
-                  className='w-36'
-                  type='number'
-                  name='acompte'
-                  value={formData.acompte}
-                  onChange={handleChange}
-                />
-              </div>
-              <div className='flex flex-col gap-2'>
-                <Label htmlFor='table'>Table</Label>
-                <Input
-                  className='w-36'
-                  type='text'
-                  name='table'
-                  value={formData.table}
-                  onChange={handleChange}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className='flex flex-col items-center justify-center'>
-          <p className='font-thin'>Ajouter par :</p>
-          <p className='font-bold'>{formData.AddBy}</p>
-        </div>
-
-        <div className='flex flex-col items-center justify-center'>
-          <div className='flex items-center justify-center gap-8'>
-            <Button
-              className='mt-4 w-36 flex gap-2 h-10'
-              onClick={handleBack}
-              type='button' // changed to prevent form submission on back
-            >
-              <ChevronLeftIcon
-                size={18}
-                strokeWidth={1}
-              />{' '}
-              Retour
-            </Button>
-
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant='destructive'
-                  className='mt-4 w-36 flex gap-2 h-10'
-                >
-                  Supprimer{' '}
-                  <Trash2Icon
-                    size={18}
-                    strokeWidth={1}
-                  />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle className='flex flex-col items-center justify-center'>
-                    <TriangleAlertIcon
-                      size={24}
-                      strokeWidth={1}
+            <Label htmlFor='commentaire'>Commentaire</Label>
+            <Input
+              className='w-80'
+              type='text'
+              name='commentaire'
+              value={formData.commentaire}
+              onChange={handleChange}
+            />{' '}
+            <div className='flex flex-col gap-2'>
+              <Label htmlFor='table'>Table</Label>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button
+                    className='w-80'
+                    variant='outline'
+                    disabled={!formData.salle}
+                  >
+                    {formData.table
+                      ? `Table: ${formData.table}`
+                      : 'Choisir une table'}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className='fixed inset-0 flex items-center justify-center bg-black bg-opacity-100 p-6 rounded-lg shadow-lg z-[9999]'>
+                  <h3 className='font-bold text-white text-lg absolute top-4'>
+                    Plan des tables
+                  </h3>
+                  <div className='relative w-full max-w-[1500px] max-h-[90%] aspect-[6753/4433] mx-auto'>
+                    <img
+                      ref={planRef}
+                      src={
+                        formData.salle === 'melkior'
+                          ? '/plansDeSalle/melkior.png'
+                          : '/plansDeSalle/balta.png'
+                      }
+                      alt='Plan des tables'
+                      className='absolute max-w-[1500px] h-full object-contain'
+                      onLoad={handleImageLoad}
                     />
-                  </AlertDialogTitle>
-                  <AlertDialogDescription className='flex flex-col items-center justify-center text-base'>
-                    Êtes-vous sûr de vouloir supprimer la réservation
-                    de
-                    <span className='font-bold'>
-                      {formData.nom} ?
-                    </span>
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>
-                    <Button
-                      variant={'outline'}
-                      className='w-28 h-9'
-                    >
-                      <ChevronLeftIcon
-                        size={18}
-                        strokeWidth={1}
-                      />{' '}
-                      Retour
-                    </Button>
-                  </AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDelete}>
-                    <Button
-                      variant={'destructive'}
-                      className='w-28 h-9'
-                    >
-                      Supprimer{' '}
-                      <Trash2Icon
-                        size={18}
-                        strokeWidth={1}
-                      />
-                    </Button>
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+                    {tablePositions.map((table) => {
+                      const displayedX =
+                        (table.x / IMAGE_REAL_WIDTH) *
+                        planDimensions.displayedWidth;
+                      const displayedY =
+                        (table.y / IMAGE_REAL_HEIGHT) *
+                        planDimensions.displayedHeight;
+
+                      const isOccupied = occupiedTables.has(table.id);
+                      const isSelected = formData.table.includes(
+                        table.id
+                      );
+
+                      return (
+                        <TableButton
+                          key={table.id}
+                          table={table}
+                          displayedX={displayedX}
+                          displayedY={displayedY}
+                          isOccupied={isOccupied && !isSelected} // Marquer occupé seulement si non sélectionné
+                          isSelected={isSelected} // Marquer la table comme sélectionnée
+                          onClick={() =>
+                            handleTableSelection(table.id)
+                          }
+                          className={isSelected ? 'bg-blue-500' : ''} // Ajouter une classe CSS pour les tables sélectionnées
+                        />
+                      );
+                    })}
+                  </div>
+                  <div className='absolute bottom-4 left-1/2 transform -translate-x-1/2'>
+                    <DialogTrigger asChild>
+                      <Button variant='outline'>Fermer</Button>
+                    </DialogTrigger>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
-
-          {formData.salle && (
-            <DrawerPlan
-              title={
-                formData.salle == 'melkior' ? 'Melkior' : "Bal'tazar"
-              }
-              image={
-                formData.salle == 'melkior'
-                  ? '/plansDeSalle/PlanTableMelkiorpng.png'
-                  : '/plansDeSalle/PlanTableBaltapng.png'
-              }
+          <Button
+            type='button'
+            variant='outline'
+            className='mt-4 w-80 flex gap-3 h-10'
+            onClick={() => router.push('/reservations')}
+          >
+            <ChevronLeftIcon
+              size={18}
+              strokeWidth={1}
             />
-          )}
-
+            Retour
+          </Button>
           <Button
             type='submit'
             className='mt-4 w-80 flex gap-3 h-10'
             disabled={isSubmitting}
           >
             {isSubmitting ? 'Modification en cours...' : 'Modifier'}
-            <PenLineIcon
+            <PlusIcon
               size={18}
               strokeWidth={1}
             />
           </Button>
 
-          {/* Message d'erreur */}
-          {error && <div className='text-red-500 mt-2'>{error}</div>}
+          <Button
+            type='button'
+            variant='destructive'
+            className='mt-4 w-80 flex gap-3 h-10'
+            onClick={() => handleDelete()}
+          >
+            Supprimer
+            <Trash2Icon
+              size={18}
+              strokeWidth={1}
+            />
+          </Button>
         </div>
+
+        {error && (
+          <div className='bg-red-500 text-white p-4 rounded mb-4 mt-4'>
+            {error}
+          </div>
+        )}
       </form>
     </div>
   );
 };
 
-export default ModifierResa;
+export default EditReservationPage;
