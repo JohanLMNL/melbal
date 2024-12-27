@@ -1,4 +1,5 @@
 'use client';
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { ToastContainer } from 'react-toastify';
@@ -27,32 +28,33 @@ import Cookies from 'js-cookie';
 
 const Reservations = () => {
   const [isMounted, setIsMounted] = useState(false);
-  const [dateDeTri, setDateDeTri] = useState(undefined);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [dateDeTri, setDateDeTri] = useState(null); // Utilisation de null par défaut
+  const [searchTerm, setSearchTerm] = useState(''); // Chaîne vide par défaut
   const [melkior, setMelkior] = useState(true);
   const [baltazar, setBaltazar] = useState(true);
 
+  // Initialisation lors du montage
   useEffect(() => {
     setIsMounted(true);
 
     // Lire la date depuis le cookie lors du montage
     const savedDate = Cookies.get('selectedReservationDate');
     if (savedDate) {
-      setDateDeTri(new Date(savedDate));
-      // Supprimer le cookie après l'avoir utilisé
+      const parsedDate = new Date(savedDate);
+      if (!isNaN(parsedDate.getTime())) {
+        setDateDeTri(parsedDate);
+      } else {
+        console.warn('Invalid date format in savedDate:', savedDate);
+      }
       Cookies.remove('selectedReservationDate');
     }
   }, []);
 
+  // Gestion des messages toast
   useEffect(() => {
     const toastMessage = localStorage.getItem('toastMessage');
-
     if (toastMessage) {
       if (toastMessage === 'success') {
-        console.log(
-          'Message toast récupéré depuis localStorage :',
-          toastMessage
-        );
         toast.success('Réservation ajoutée avec succès !');
       } else if (toastMessage === 'error') {
         toast.error(
@@ -64,11 +66,19 @@ const Reservations = () => {
   }, []);
 
   const handleDateChange = useCallback((date) => {
-    setDateDeTri(date);
+    setDateDeTri(date || null); // Utilisation de null si la date est vide
   }, []);
 
   const handleSearchChange = useCallback((event) => {
-    setSearchTerm(event.target.value);
+    setSearchTerm(event.target.value || ''); // Chaîne vide par défaut
+  }, []);
+
+  const safeHandlePrint = useCallback((value) => {
+    if (!value || typeof value !== 'string') {
+      console.error('Invalid value passed to handlePrint:', value);
+      return;
+    }
+    handlePrint(value);
   }, []);
 
   if (!isMounted) {
@@ -114,12 +124,12 @@ const Reservations = () => {
           className='w-80'
           type='text'
           placeholder='Recherche par nom...'
-          value={searchTerm}
+          value={searchTerm || ''}
           onChange={handleSearchChange}
         />
         <DatePicker
           className='lg:h-10'
-          selectedDate={dateDeTri}
+          selectedDate={dateDeTri || null}
           onDateChange={handleDateChange}
         />
         <Link href='/reservations/nouvelleReservation'>
@@ -133,7 +143,7 @@ const Reservations = () => {
         </Link>
 
         <AlertDialog>
-          <AlertDialogTrigger>
+          <AlertDialogTrigger asChild>
             <Button
               variant='outline'
               className='flex items-center justify-center gap-2 w-48'
@@ -156,7 +166,7 @@ const Reservations = () => {
             <AlertDialogFooter>
               <AlertDialogCancel>
                 <Button
-                  variant={'outline'}
+                  variant='outline'
                   className='w-28 h-9'
                 >
                   <ChevronLeftIcon
@@ -167,12 +177,12 @@ const Reservations = () => {
                 </Button>
               </AlertDialogCancel>
               <AlertDialogAction
-                onClick={() => handlePrint('melkior')}
+                onClick={() => safeHandlePrint('melkior')}
               >
                 <Button className='w-28 h-9'>Melkior</Button>
               </AlertDialogAction>
               <AlertDialogAction
-                onClick={() => handlePrint('baltazar')}
+                onClick={() => safeHandlePrint('baltazar')}
               >
                 <Button className='w-28 h-9'>Bal'tazar</Button>
               </AlertDialogAction>
@@ -182,8 +192,8 @@ const Reservations = () => {
       </div>
       <div>
         <ResaList
-          dateDeTri={dateDeTri}
-          searchTerm={searchTerm}
+          dateDeTri={dateDeTri || new Date()}
+          searchTerm={searchTerm || ''}
           melkior={melkior}
           baltazar={baltazar}
         />

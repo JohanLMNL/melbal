@@ -12,6 +12,21 @@ const ResaCard = (props) => {
 
   // Fonction pour vérifier si la table inclut au moins un élément de la liste
   const includesAnyTable = (table, list) => {
+    if (table === null || table === undefined) {
+      // Retourne simplement `false` si la valeur est null ou undefined
+      return false;
+    }
+
+    if (typeof table !== 'string') {
+      console.error('Invalid table value (not a string):', table);
+      return false;
+    }
+
+    if (table.trim() === '') {
+      // Une chaîne vide est considérée comme ne contenant aucune table
+      return false;
+    }
+
     const tableArray = table.split(',').map((item) => item.trim());
     return tableArray.some((item) => list.includes(item));
   };
