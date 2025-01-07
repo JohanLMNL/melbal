@@ -44,6 +44,7 @@ const EditReservationPage = () => {
     commentaire: '',
     acompte: '',
     table: [],
+    AddBy: '',
   });
 
   const [reservations, setReservations] = useState([]);
@@ -274,7 +275,15 @@ const EditReservationPage = () => {
               name='commentaire'
               value={formData.commentaire}
               onChange={handleChange}
-            />{' '}
+            />
+            <Label htmlFor='acompte'>Acompte</Label>
+            <Input
+              className='w-80'
+              type='number'
+              name='acompte'
+              value={formData.acompte}
+              onChange={handleChange}
+            />
             <div className='flex flex-col gap-2'>
               <Label htmlFor='table'>Table</Label>
               <Dialog>
@@ -341,6 +350,10 @@ const EditReservationPage = () => {
                   </div>
                 </DialogContent>
               </Dialog>
+            </div>
+            <div className='flex flex-col justify-center items-center w-80'>
+              Ajouté par :
+              <div className='font-bold'>{formData.AddBy}</div>
             </div>
           </div>
           <Button
