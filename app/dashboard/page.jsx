@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import MenuBar from '@/components/layouts/MenuBar';
 import ResaCard from '../../components/dashboard/ResaCard';
 import Cookies from 'js-cookie'; // Importer js-cookie pour accéder au cookie
+import AgendaCardDB from '@/components/dashboard/AgendaCardDB';
 
 const Dashboard = () => {
   const [prenom, setPrenom] = useState('');
@@ -29,6 +30,7 @@ const Dashboard = () => {
             Bonjour {prenom} !
           </h2>
         )}
+        <AgendaCardDB />
         <ResaCard />
       </div>
     </div>

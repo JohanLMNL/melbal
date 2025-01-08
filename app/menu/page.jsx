@@ -9,6 +9,7 @@ import {
   HouseIcon,
   UserPenIcon,
   UsersIcon,
+  CalendarDays,
 } from 'lucide-react';
 
 const MenuPage = () => {
@@ -39,7 +40,18 @@ const MenuPage = () => {
               />
             </Button>
           </Link>
-          <p>dashboard</p>
+          <p>Dashboard</p>
+        </div>
+        <div className='flex gap-1 flex-col items-center justify-center'>
+          <Link href='/agenda'>
+            <Button size='icon'>
+              <CalendarDays
+                size={24}
+                strokeWidth={1}
+              />
+            </Button>
+          </Link>
+          <p>Agenda</p>
         </div>
         <div className='flex gap-1 flex-col items-center justify-center'>
           <Link href='/reservations'>
