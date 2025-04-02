@@ -3,11 +3,7 @@ import { supabase } from '../supabaseClient';
 export const getAllAgenda = async () => {
   try {
     const { data, error } = await supabase.from('agenda').select('*');
-
-    if (error) {
-      throw error;
-    }
-
+    if (error) throw error;
     return data;
   } catch (error) {
     console.error('Error fetching agenda:', error);
@@ -17,35 +13,58 @@ export const getAllAgenda = async () => {
 
 export const getNextEvents = async () => {
   try {
-    const now = new Date().toISOString(); // Date actuelle au format ISO
+    const now = new Date().toISOString();
     const { data: firstEvent, error: firstError } = await supabase
       .from('agenda')
       .select('*')
-      .gte('date', now) // Filtrer par date >= maintenant
-      .order('date', { ascending: true }) // Trier par ordre croissant
-      .limit(1); // Récupérer uniquement le prochain événement
+      .gte('date', now)
+      .order('date', { ascending: true })
+      .limit(1);
 
-    if (firstError) {
-      throw firstError;
-    }
+    if (firstError) throw firstError;
+    if (!firstEvent || firstEvent.length === 0) return [];
 
-    if (!firstEvent || firstEvent.length === 0) {
-      return []; // Aucun événement trouvé
-    }
-
-    const closestDate = firstEvent[0].date; // Date du prochain événement
+    const closestDate = firstEvent[0].date;
     const { data: allEvents, error: allError } = await supabase
       .from('agenda')
       .select('*')
-      .eq('date', closestDate); // Récupérer tous les événements de cette date
+      .eq('date', closestDate);
 
-    if (allError) {
-      throw allError;
-    }
-
+    if (allError) throw allError;
     return allEvents || [];
   } catch (error) {
     console.error('Error fetching next events:', error);
     return [];
+  }
+};
+
+export const createAgenda = async ({ evenement, date, salle }) => {
+  console.log('🧾 Données envoyées à Supabase :', {
+    evenement,
+    date,
+    salle,
+  });
+
+  const { data, error } = await supabase
+    .from('agenda')
+    .insert([{ evenement, date, salle }]);
+
+  if (error) {
+    console.error('❌ Erreur Supabase :', error);
+    throw error;
+  }
+
+  console.log('✅ Données créées :', data);
+  return data;
+};
+export const deleteAgenda = async (id) => {
+  const { error } = await supabase
+    .from('agenda')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Erreur lors de la suppression :', error);
+    throw error;
   }
 };
