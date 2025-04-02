@@ -26,6 +26,7 @@ const AgendaList = ({
   const [agendaItems, setAgendaItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedEventId, setSelectedEventId] = useState(null);
+  const [userRole, setUserRole] = useState(null);
 
   useEffect(() => {
     const fetchAgenda = async () => {
@@ -49,7 +50,26 @@ const AgendaList = ({
       setLoading(false);
     };
 
+    // Récupération du rôle depuis le cookie
+    const getUserRole = () => {
+      const cookie = document.cookie;
+      const userCookie = cookie
+        .split('; ')
+        .find((row) => row.startsWith('userSession='))
+        ?.split('=')[1];
+
+      if (userCookie) {
+        try {
+          const user = JSON.parse(decodeURIComponent(userCookie));
+          setUserRole(user.role);
+        } catch (error) {
+          console.error('Erreur parsing cookie :', error);
+        }
+      }
+    };
+
     fetchAgenda();
+    getUserRole();
   }, []);
 
   const handleDelete = async () => {
@@ -85,6 +105,8 @@ const AgendaList = ({
   if (filteredItems.length === 0)
     return <div>Aucun événement correspondant.</div>;
 
+  const isAdminOrBoss = userRole === 'admin' || userRole === 'boss';
+
   return (
     <div className='flex flex-wrap gap-3 mt-4 items-center justify-center'>
       {filteredItems.map((agenda) => (
@@ -92,31 +114,33 @@ const AgendaList = ({
           key={agenda.id}
           className='relative'
         >
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <button
-                className='absolute top-2 right-2 z-20 bg-white rounded-full text-gray-500 hover:text-red-600 shadow-md p-1'
-                onClick={() => setSelectedEventId(agenda.id)}
-                title="Supprimer l'évènement"
-              >
-                ✕
-              </button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  Confirmer la suppression
-                </AlertDialogTitle>
-              </AlertDialogHeader>
-              <p>Es-tu sûr de vouloir supprimer cet évènement ?</p>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Annuler</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete}>
-                  Supprimer
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          {isAdminOrBoss && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button
+                  className='absolute top-2 right-2 z-20 text-gray-500 hover:text-red-600 shadow-md p-1'
+                  onClick={() => setSelectedEventId(agenda.id)}
+                  title="Supprimer l'évènement"
+                >
+                  ✕
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    Confirmer la suppression
+                  </AlertDialogTitle>
+                </AlertDialogHeader>
+                <p>Es-tu sûr de vouloir supprimer cet évènement ?</p>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Annuler</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete}>
+                    Supprimer
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
 
           <AgendaCard
             salle={agenda.salle}
@@ -126,7 +150,7 @@ const AgendaList = ({
         </div>
       ))}
     </div>
-  )
+  );
 };
 
 export default AgendaList;

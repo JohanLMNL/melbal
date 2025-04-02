@@ -86,7 +86,7 @@ const Page = () => {
         />
         {/* Afficher le bouton uniquement pour admin ou boss */}
         {(userRole === 'admin' || userRole === 'boss') && (
-          <Link href='/agenda'>
+          <Link href='/agenda/nouveau'>
             <Button className='flex items-center justify-center gap-2'>
               Nouvel évènement
               <CalendarPlus
