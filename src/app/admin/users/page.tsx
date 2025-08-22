@@ -19,12 +19,13 @@ export default function AdminUsersPage() {
   const [currentProfile, setCurrentProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [showAddDialog, setShowAddDialog] = useState(false)
-  const [newUser, setNewUser] = useState<{ email: string; password: string; username: string; role: 'admin' | 'server' | 'porter' | 'boss' }>({ email: '', password: '', username: '', role: 'server' })
+  const [newUser, setNewUser] = useState<{ password: string; username: string; role: 'admin' | 'server' | 'porter' | 'boss' }>({ password: '', username: '', role: 'server' })
   const [creating, setCreating] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; user: { id: string; username: string } | null }>({ open: false, user: null })
 
   useEffect(() => {
+    console.log('Component mounted, loading data...')
     loadCurrentProfile()
     loadProfiles()
   }, [])
@@ -43,63 +44,60 @@ export default function AdminUsersPage() {
 
   const loadProfiles = async () => {
     setLoading(true)
+    console.log('Loading profiles...')
     const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false })
+      .rpc('get_user_profiles')
 
+    console.log('Profiles response:', { data, error })
+    
     if (error) {
+      console.error('Error loading profiles:', error)
       toast.error('Erreur de chargement', { description: error.message })
     } else {
+      console.log('Setting profiles:', data)
       setProfiles(data || [])
     }
     setLoading(false)
   }
 
   const createUser = async () => {
-    if (!newUser.email || !newUser.password || !newUser.username) {
+    if (!newUser.password || !newUser.username) {
       toast.error('Tous les champs sont requis')
       return
     }
 
     setCreating(true)
     try {
-      // Créer l'utilisateur avec Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: newUser.email,
-        password: newUser.password,
-        options: {
-          data: {
-            username: newUser.username,
-            role: newUser.role
-          }
-        }
+      // Appeler l'API route pour créer l'utilisateur de manière sécurisée
+      const response = await fetch('/api/admin/create-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          password: newUser.password,
+          username: newUser.username,
+          role: newUser.role
+        }),
       })
 
-      if (authError) {
-        toast.error('Erreur de création', { description: authError.message })
+      const result = await response.json()
+      console.log('API Response:', { status: response.status, result })
+
+      if (!response.ok) {
+        console.error('API Error:', result.error)
+        toast.error('Erreur de création', { description: result.error })
         return
       }
 
-      if (authData.user) {
-        // Créer le profil dans la table profiles
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: authData.user.id,
-            username: newUser.username,
-            role: newUser.role
-          })
-
-        if (profileError) {
-          toast.error('Erreur de création du profil', { description: profileError.message })
-          return
-        }
-
+      if (result.success && result.user) {
         toast.success('Utilisateur créé avec succès')
-        setNewUser({ email: '', password: '', username: '', role: 'server' as 'admin' | 'server' | 'porter' | 'boss' })
+        setNewUser({ password: '', username: '', role: 'server' as 'admin' | 'server' | 'porter' | 'boss' })
         setShowAddDialog(false)
         loadProfiles()
+      } else {
+        console.error('Unexpected API response:', result)
+        toast.error('Erreur inattendue', { description: 'Réponse API invalide' })
       }
     } catch (error) {
       toast.error('Erreur inattendue lors de la création')
@@ -137,11 +135,9 @@ export default function AdminUsersPage() {
     setDeleting(profileId)
     
     try {
-      // Supprimer d'abord le profil
+      // Supprimer d'abord le profil via fonction SQL
       const { error: profileError } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', profileId)
+        .rpc('delete_user_profile', { user_id: profileId })
 
       if (profileError) {
         toast.error('Erreur de suppression du profil', { description: profileError.message })
@@ -244,16 +240,6 @@ export default function AdminUsersPage() {
               <DialogTitle>Créer un nouvel utilisateur</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={newUser.email}
-                  onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
-                  placeholder="utilisateur@example.com"
-                />
-              </div>
               <div>
                 <Label htmlFor="username">Pseudo</Label>
                 <Input

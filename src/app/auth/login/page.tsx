@@ -19,8 +19,11 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      // Convertir pseudo en email technique
-      const email = `${pseudo}@app.local`
+      console.log('Tentative de connexion pour pseudo:', pseudo)
+      
+      // Utilisons un format fixe pour la connexion
+      const email = `${pseudo}21@gmail.com`
+      console.log('Email généré:', email)
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -39,8 +42,9 @@ export default function LoginPage() {
         router.push('/reservations')
       }
     } catch (error) {
-      toast.error('Erreur de connexion', {
-        description: 'Une erreur inattendue s\'est produite'
+      console.error('Erreur de connexion:', error)
+      toast.error('Une erreur inattendue s\'est produite', {
+        description: error instanceof Error ? error.message : 'Erreur inconnue'
       })
     } finally {
       setLoading(false)
