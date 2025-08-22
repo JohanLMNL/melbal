@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Confirmer automatiquement l'email après création
-    if (authData.user && !authError) {
+    if (authData.user) {
       const { error: confirmError } = await supabaseAdmin.auth.admin.updateUserById(
         authData.user.id,
         { email_confirm: true }
@@ -60,13 +60,6 @@ export async function POST(request: NextRequest) {
       if (confirmError) {
         console.warn('Erreur confirmation email:', confirmError.message)
       }
-    }
-
-    if (authError) {
-      return NextResponse.json(
-        { error: authError.message },
-        { status: 400 }
-      )
     }
 
     if (authData.user) {
