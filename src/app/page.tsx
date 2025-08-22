@@ -16,12 +16,11 @@ export default function HomePage() {
     const { data: { session } } = await supabase.auth.getSession()
     
     if (session) {
-      // Récupérer le profil utilisateur pour vérifier le rôle
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', session.user.id)
-        .single()
+      // Récupérer le profil utilisateur pour vérifier le rôle via RPC
+      const { data: profiles, error } = await supabase
+        .rpc('get_user_profiles')
+      
+      const profile = profiles?.find((p: any) => p.id === session.user.id)
       
       console.log('Profile data:', profile, 'Error:', error)
       
