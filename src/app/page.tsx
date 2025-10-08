@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 
 export default function HomePage() {
@@ -37,6 +38,9 @@ export default function HomePage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
+          <div className="flex items-center justify-center mb-3">
+            <Image src="/logos/MelBal_Logo.png" alt="MelBal" width={56} height={56} priority />
+          </div>
           <h1 className="text-2xl font-bold mb-2">MelbalApp</h1>
           <p className="text-muted-foreground">Chargement...</p>
         </div>

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -55,6 +56,9 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
+          <div className="flex items-center justify-center mb-2">
+            <Image src="/logos/MelBal_Logo.png?v=1" alt="MelBal" width={56} height={56} priority />
+          </div>
           <CardTitle className="text-2xl font-bold">MelbalApp</CardTitle>
           <CardDescription>
             Connectez-vous pour accéder au système de réservation
