@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://datjoleofcjcpejnhddd.supabase.co'
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: { autoRefreshToken: false, persistSession: false }
-})
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,6 +12,20 @@ export async function POST(request: NextRequest) {
     }
 
     const email = `${pseudo}21@gmail.com`
+
+    // Vérification configuration ENV côté serveur
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://datjoleofcjcpejnhddd.supabase.co'
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!supabaseServiceKey) {
+      return NextResponse.json({ error: 'Configuration manquante: SUPABASE_SERVICE_ROLE_KEY' }, { status: 500 })
+    }
+    if (!supabaseUrl) {
+      return NextResponse.json({ error: 'Configuration manquante: NEXT_PUBLIC_SUPABASE_URL' }, { status: 500 })
+    }
+
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    })
 
     // Trouver l'utilisateur par email technique ou metadata.username
     const { data, error } = await supabaseAdmin.auth.admin.listUsers()
@@ -40,3 +50,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Erreur interne du serveur' }, { status: 500 })
   }
 }
+
