@@ -14,6 +14,7 @@ import { Plus, Edit, Trash2, Users, Calendar, MapPin, Euro, AlertTriangle, Crown
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import Image from 'next/image'
 
 // Helper icon renderer visible to all components in this module
 function renderKindIcon(kind?: 'assises' | 'haute' | 'vip') {
@@ -27,6 +28,20 @@ function renderKindIcon(kind?: 'assises' | 'haute' | 'vip') {
     default:
       return null
   }
+}
+
+// Helper to render venue logo
+function renderVenueLogo(venue: string, size: number = 14) {
+  const src = venue === "Bal'tazar" ? '/logos/Bal_Logo.png' : '/logos/Mel_Logo.png'
+  return (
+    <Image
+      src={src}
+      alt={venue}
+      width={size}
+      height={size}
+      className="inline-block align-middle"
+    />
+  )
 }
 
 export default function ReservationsPage() {
@@ -371,9 +386,8 @@ export default function ReservationsPage() {
                       >
                         <TableCell className="font-medium">{reservation.name}</TableCell>
                         <TableCell>
-                          <Badge variant="outline">
-                            <MapPin className="h-3 w-3 mr-1" />
-                            {reservation.venue}
+                          <Badge variant="outline" className="inline-flex items-center gap-1">
+                            {renderVenueLogo(reservation.venue, 22)}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -383,7 +397,7 @@ export default function ReservationsPage() {
                               return (
                                 <span key={`${reservation.id}-${rt.table_number}-${idx}`} className="inline-flex items-center gap-1">
                                   {renderKindIcon(kind)}
-                                  {rt.table_number}
+                                  <span className="text-base font-semibold leading-none">{rt.table_number}</span>
                                 </span>
                               )
                             })}
@@ -444,9 +458,8 @@ export default function ReservationsPage() {
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-lg truncate">{reservation.name}</h3>
                           <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="outline" className="text-xs">
-                              <MapPin className="h-3 w-3 mr-1" />
-                              {reservation.venue}
+                            <Badge variant="outline" className="text-xs inline-flex items-center gap-1">
+                              {renderVenueLogo(reservation.venue, 18)}
                             </Badge>
                             <span className="text-xs text-muted-foreground flex flex-wrap gap-2">
                               Tables:
@@ -456,7 +469,7 @@ export default function ReservationsPage() {
                                   return (
                                     <span key={`${reservation.id}-m-${rt.table_number}-${idx}`} className="inline-flex items-center gap-1">
                                       {renderKindIcon(kind)}
-                                      {rt.table_number}
+                                      <span className="text-base font-bold leading-none">{rt.table_number}</span>
                                     </span>
                                   )
                                 })

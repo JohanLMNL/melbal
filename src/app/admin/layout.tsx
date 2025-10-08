@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase, type Profile, isBossOrAdmin } from '@/lib/supabase'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Users, Calendar } from 'lucide-react'
 
@@ -55,7 +56,10 @@ export default function AdminLayout({
                 </Button>
               </Link>
               <div className="h-6 w-px bg-border" />
-              <h2 className="font-semibold">Administration</h2>
+              <div className="flex items-center gap-2">
+                <Image src="/logos/MelBal_Logo.png" alt="MelBal" width={20} height={20} />
+                <h2 className="font-semibold">Administration</h2>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Link href="/admin/users">

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase, type Profile, isBossOrAdmin } from '@/lib/supabase'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Settings, LogOut, Shield } from 'lucide-react'
 import { toast } from 'sonner'
@@ -49,7 +50,8 @@ export default function ReservationsLayout({
       <nav className="border-b bg-card">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <Image src="/logos/MelBal_Logo.png?v=1" alt="MelBal" width={32} height={32} priority />
               <h2 className="font-semibold">MelbalApp</h2>
             </div>
             <div className="flex items-center gap-2">
