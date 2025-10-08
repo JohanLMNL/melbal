@@ -54,7 +54,7 @@ export default function ReservationsLayout({
             </div>
             <div className="flex items-center gap-2">
               {isBossOrAdmin(profile) && (
-                <Link href="/admin/users">
+                <Link href="/admin">
                   <Button variant="ghost" size="sm">
                     <Shield className="h-4 w-4 mr-2" />
                     Administration

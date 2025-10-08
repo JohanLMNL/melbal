@@ -33,12 +33,23 @@ export default function AdminUsersPage() {
   const loadCurrentProfile = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single()
-      setCurrentProfile(data)
+      if (error) {
+        // Fallback to auth metadata if DB profile is not accessible
+        const role = (user.user_metadata as any)?.role
+        const username = (user.user_metadata as any)?.username || user.email?.split('@')[0]
+        if (role) {
+          setCurrentProfile({ id: user.id, username, role, created_at: new Date().toISOString() } as any)
+        } else {
+          setCurrentProfile(null)
+        }
+      } else {
+        setCurrentProfile(data)
+      }
     }
   }
 

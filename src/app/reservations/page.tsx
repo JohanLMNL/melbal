@@ -10,10 +10,24 @@ import { Table as TableUI, TableBody, TableCell, TableHead, TableHeader, TableRo
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus, Edit, Trash2, Users, Calendar, MapPin, Euro, AlertTriangle } from 'lucide-react'
+import { Plus, Edit, Trash2, Users, Calendar, MapPin, Euro, AlertTriangle, Crown, Armchair, Wine } from 'lucide-react'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+
+// Helper icon renderer visible to all components in this module
+function renderKindIcon(kind?: 'assises' | 'haute' | 'vip') {
+  switch (kind) {
+    case 'vip':
+      return <Crown className="h-3 w-3 text-yellow-500" />
+    case 'assises':
+      return <Armchair className="h-3 w-3 text-muted-foreground" />
+    case 'haute':
+      return <Wine className="h-3 w-3 text-indigo-500" />
+    default:
+      return null
+  }
+}
 
 export default function ReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([])
@@ -36,6 +50,32 @@ export default function ReservationsPage() {
   useEffect(() => {
     loadProfile()
   }, [])
+
+  // Charger les types de tables pour afficher les icônes par numéro
+  const [tableKinds, setTableKinds] = useState<Record<string, 'assises' | 'haute' | 'vip'>>({})
+  useEffect(() => {
+    loadTableKinds()
+  }, [])
+
+  const loadTableKinds = async () => {
+    try {
+      const res = await fetch('/api/admin/tables/list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error || 'Erreur API')
+      const rows = result.tables || []
+      const map: Record<string, 'assises' | 'haute' | 'vip'> = {}
+      rows.forEach((t: any) => {
+        map[`${t.venue}:${t.table_number}`] = t.kind
+      })
+      setTableKinds(map)
+    } catch (e) {
+      console.error('Erreur chargement types de tables:', e)
+    }
+  }
 
   const loadProfile = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -165,6 +205,8 @@ export default function ReservationsPage() {
     }
     return baseClass
   }
+
+  
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -335,7 +377,17 @@ export default function ReservationsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {reservation.reservation_tables?.map(rt => rt.table_number).join(', ')}
+                          <div className="flex flex-wrap gap-2">
+                            {reservation.reservation_tables?.map((rt, idx) => {
+                              const kind = tableKinds[`${reservation.venue}:${rt.table_number}`]
+                              return (
+                                <span key={`${reservation.id}-${rt.table_number}-${idx}`} className="inline-flex items-center gap-1">
+                                  {renderKindIcon(kind)}
+                                  {rt.table_number}
+                                </span>
+                              )
+                            })}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center">
@@ -396,8 +448,21 @@ export default function ReservationsPage() {
                               <MapPin className="h-3 w-3 mr-1" />
                               {reservation.venue}
                             </Badge>
-                            <span className="text-xs text-muted-foreground">
-                              Tables: {reservation.reservation_tables?.map(rt => rt.table_number).join(', ') || 'Aucune'}
+                            <span className="text-xs text-muted-foreground flex flex-wrap gap-2">
+                              Tables:
+                              {reservation.reservation_tables && reservation.reservation_tables.length > 0 ? (
+                                reservation.reservation_tables.map((rt, idx) => {
+                                  const kind = tableKinds[`${reservation.venue}:${rt.table_number}`]
+                                  return (
+                                    <span key={`${reservation.id}-m-${rt.table_number}-${idx}`} className="inline-flex items-center gap-1">
+                                      {renderKindIcon(kind)}
+                                      {rt.table_number}
+                                    </span>
+                                  )
+                                })
+                              ) : (
+                                <span className="ml-1">Aucune</span>
+                              )}
                             </span>
                           </div>
                         </div>
@@ -651,7 +716,7 @@ function EditReservationForm({
           Tables disponibles ({availableTables.length} libres)
         </label>
         <div className="grid grid-cols-5 gap-2 max-h-32 overflow-y-auto">
-          {availableTables.map((table) => (
+          {(availableTables || []).map((table) => (
             <Button
               key={table.id}
               type="button"
@@ -663,7 +728,9 @@ function EditReservationForm({
                   : [...formData.tables, table.table_number]
                 setFormData({...formData, tables: newTables})
               }}
+              className="inline-flex items-center gap-1"
             >
+              {renderKindIcon(table.kind)}
               {table.table_number}
             </Button>
           ))}
@@ -859,7 +926,7 @@ function NewReservationForm({ onSuccess, defaultDate }: { onSuccess: () => void,
           Tables disponibles ({availableTables.length} libres)
         </label>
         <div className="grid grid-cols-5 gap-2 max-h-32 overflow-y-auto">
-          {availableTables.map((table) => (
+          {(availableTables || []).map((table) => (
             <Button
               key={table.id}
               type="button"
@@ -871,7 +938,9 @@ function NewReservationForm({ onSuccess, defaultDate }: { onSuccess: () => void,
                   : [...formData.tables, table.table_number]
                 setFormData({...formData, tables: newTables})
               }}
+              className="inline-flex items-center gap-1"
             >
+              {renderKindIcon((table as any).kind)}
               {table.table_number}
             </Button>
           ))}
