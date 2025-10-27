@@ -1,4 +1,4 @@
-// File: C:\Users\jleme\CascadeProjects\melbalapp\src\app\reservations\page.tsx
+// File: /Users/johan/Code/melbal/src/app/reservations/page.tsx
 import * as entry from '../../../../src/app/reservations/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

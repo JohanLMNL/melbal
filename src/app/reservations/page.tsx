@@ -47,6 +47,7 @@ function renderVenueLogo(venue: string, size: number = 14) {
 export default function ReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [venueFilter, setVenueFilter] = useState<'all' | 'Melkior' | "Bal'tazar">('all')
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date()
     return today.toISOString().split('T')[0]
@@ -60,7 +61,7 @@ export default function ReservationsPage() {
 
   useEffect(() => {
     loadReservations()
-  }, [selectedDate])
+  }, [selectedDate, venueFilter])
 
   useEffect(() => {
     loadProfile()
@@ -123,6 +124,10 @@ export default function ReservationsPage() {
       .eq('date', selectedDate)
       .order('arrived', { ascending: true })
       .order('created_at', { ascending: false })
+
+    if (venueFilter !== 'all') {
+      query = query.eq('venue', venueFilter)
+    }
 
 
     const { data, error } = await query
@@ -224,22 +229,23 @@ export default function ReservationsPage() {
   
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">MelbalApp</h1>
-          <p className="text-muted-foreground">
-            Système de réservation - {profile?.username} ({profile?.role})
-          </p>
-        </div>
+    <div className="container mx-auto p-6 pb-24 space-y-6">
+      <div className="text-center">
+        <h1 className="text-xl font-semibold">
+          {new Date().getHours() >= 18 ? 'Bonsoir' : 'Bonjour'} {profile?.username || ''}
+        </h1>
+      </div>
+
+      <div className="hidden md:block">
+        <Button className="w-full h-12" onClick={() => setShowNewDialog(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Nouvelle réservation
+        </Button>
+      </div>
+
+      <div>
         <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Nouvelle réservation
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Nouvelle réservation</DialogTitle>
             </DialogHeader>
@@ -255,7 +261,7 @@ export default function ReservationsPage() {
 
         {/* Dialog de modification */}
         <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Modifier la réservation</DialogTitle>
             </DialogHeader>
@@ -278,7 +284,7 @@ export default function ReservationsPage() {
 
         {/* Dialog de confirmation de suppression */}
         <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[70vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-destructive">
                 <AlertTriangle className="h-5 w-5" />
@@ -323,6 +329,16 @@ export default function ReservationsPage() {
         </Dialog>
       </div>
 
+      {/* Sticky action bar on mobile */}
+      <div className="md:hidden fixed inset-x-0 bottom-0 z-40 border-t bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
+        <div className="mx-auto max-w-screen-md px-4 py-3">
+          <Button className="w-full h-12" onClick={() => setShowNewDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nouvelle réservation
+          </Button>
+        </div>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -331,16 +347,31 @@ export default function ReservationsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="max-w-xs">
-            <label className="text-sm font-medium mb-2 block">Date des réservations</label>
-            <div className="relative">
-              <Input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="pr-10"
-              />
-              <Calendar className="absolute right-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="w-full sm:max-w-xs">
+              <label className="text-sm font-medium mb-2 block">Date des réservations</label>
+              <div className="relative w-full min-w-0 overflow-visible">
+                <Input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-full min-w-0 pr-10 appearance-none text-base min-h-[44px]"
+                />
+                <Calendar className="absolute right-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+              </div>
+            </div>
+            <div className="w-full sm:max-w-xs">
+              <label className="text-sm font-medium mb-2 block">Salle</label>
+              <Select value={venueFilter} onValueChange={(v: any) => setVenueFilter(v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes</SelectItem>
+                  <SelectItem value="Melkior">Melkior</SelectItem>
+                  <SelectItem value="Bal'tazar">Bal'tazar</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>
@@ -349,10 +380,15 @@ export default function ReservationsPage() {
       <Card>
         <CardHeader>
           <CardTitle>
-            Réservations du {format(new Date(selectedDate), 'EEE dd MMMM', { locale: fr })}
-            <Badge variant="outline" className="ml-2">
-              {reservations.length} réservation{reservations.length !== 1 ? 's' : ''}
-            </Badge>
+            <div className="leading-tight">
+              <div>Réservations du</div>
+              <div className="mt-1 text-xl font-semibold inline-flex items-center">
+                {format(new Date(selectedDate), 'EEE dd MMMM', { locale: fr })}
+                <Badge variant="outline" className="ml-2">
+                  {reservations.length} réservation{reservations.length !== 1 ? 's' : ''}
+                </Badge>
+              </div>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -649,7 +685,7 @@ function EditReservationForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="text-sm font-medium mb-2 block">Salle</label>
           <Select value={formData.venue} onValueChange={(value: any) => setFormData({...formData, venue: value})}>
@@ -669,6 +705,7 @@ function EditReservationForm({
             value={formData.date}
             onChange={(e) => setFormData({...formData, date: e.target.value})}
             required
+            className="w-full min-w-0 text-base min-h-[44px]"
           />
         </div>
       </div>
@@ -679,10 +716,11 @@ function EditReservationForm({
           value={formData.name}
           onChange={(e) => setFormData({...formData, name: e.target.value})}
           required
+          className="text-base min-h-[44px]"
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="text-sm font-medium mb-2 block">Nombre de personnes</label>
           <Input
@@ -691,6 +729,7 @@ function EditReservationForm({
             value={formData.guests}
             onChange={(e) => setFormData({...formData, guests: e.target.value})}
             required
+            className="text-base min-h-[44px]"
           />
         </div>
         <div>
@@ -701,6 +740,7 @@ function EditReservationForm({
             min="0"
             value={formData.deposit}
             onChange={(e) => setFormData({...formData, deposit: e.target.value})}
+            className="text-base min-h-[44px]"
           />
         </div>
       </div>
@@ -711,6 +751,7 @@ function EditReservationForm({
           type="tel"
           value={formData.phone}
           onChange={(e) => setFormData({...formData, phone: e.target.value})}
+          className="text-base min-h-[44px]"
         />
       </div>
 
@@ -879,6 +920,7 @@ function NewReservationForm({ onSuccess, defaultDate }: { onSuccess: () => void,
             value={formData.date}
             onChange={(e) => setFormData({...formData, date: e.target.value})}
             required
+            className="w-full min-w-0"
           />
         </div>
       </div>

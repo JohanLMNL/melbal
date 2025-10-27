@@ -56,4 +56,14 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Anti-zoom iOS: ensure form controls use >=16px font-size and touch-friendly height */
+  input, select, textarea {
+    font-size: 16px;
+    line-height: 1.5;
+    min-height: 44px;
+  }
+  /* Ensure buttons in forms are also comfortably tappable */
+  button {
+    min-height: 44px;
+  }
 }
