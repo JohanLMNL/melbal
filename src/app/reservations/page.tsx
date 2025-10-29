@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase, type Reservation, type Profile, type Table, canManageReservations } from '@/lib/supabase'
 import { formatEuro } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -44,10 +44,139 @@ function renderVenueLogo(venue: string, size: number = 14) {
   )
 }
 
+function TablePlanPicker({
+  venue,
+  tables,
+  reserved,
+  reservedInfo,
+  selected,
+  onChange,
+}: {
+  venue: 'Melkior' | "Bal'tazar"
+  tables: Table[]
+  reserved: number[]
+  reservedInfo: Record<number, { name: string, guests: number }>
+  selected: number[]
+  onChange: (tables: number[]) => void
+}) {
+  const planSrc = venue === "Bal'tazar" ? '/plans/planTableBalta.png' : '/plans/planTableMelkior.png'
+  const toggle = (num: number) => {
+    const next = selected.includes(num) ? selected.filter(n => n !== num) : [...selected, num]
+    onChange(next)
+  }
+  const pillClass = (kind: any, isSelected: boolean) => {
+    // Colors: haute -> blue/indigo, vip -> gold/yellow, assises -> neutral
+    if (kind === 'vip') {
+      return isSelected
+        ? 'bg-yellow-500 text-black border-yellow-500'
+        : 'bg-background/90 text-yellow-700 border-yellow-500 hover:bg-yellow-50'
+    }
+    if (kind === 'haute') {
+      return isSelected
+        ? 'bg-indigo-600 text-white border-indigo-600'
+        : 'bg-background/90 text-indigo-600 border-indigo-500 hover:bg-indigo-50'
+    }
+    // assises or default
+    return isSelected
+      ? 'bg-foreground text-background border-foreground'
+      : 'bg-background/90 text-muted-foreground border-border hover:bg-accent'
+  }
+  return (
+    <div className="space-y-4">
+      <div className="relative w-full border rounded-md overflow-hidden bg-muted">
+        <Image src={planSrc} alt={`Plan ${venue}`} width={1200} height={800} className="w-full h-auto select-none pointer-events-none" />
+        {(() => {
+          const list = (tables || [])
+          const toNum = (v: any) => {
+            if (v === null || typeof v === 'undefined') return undefined
+            if (typeof v === 'number') return isFinite(v) ? v : undefined
+            const n = parseFloat(String(v))
+            return isNaN(n) ? undefined : n
+          }
+          const hasPos = (t: any) => toNum(t.pos_x) !== undefined && toNum(t.pos_y) !== undefined
+          const positioned = list.filter((t: any) => hasPos(t))
+          const unpositioned = list.filter((t: any) => !hasPos(t))
+          return (
+            <>
+              {/* Absolute layer for positioned tables */}
+              <div className="absolute inset-0 z-20">
+                {positioned.map((t: any) => {
+                  const px = Math.max(0, Math.min(100, toNum(t.pos_x) as number))
+                  const py = Math.max(0, Math.min(100, toNum(t.pos_y) as number))
+                  const isReserved = (reserved || []).includes(t.table_number)
+                  const isSelected = selected.includes(t.table_number)
+                  const reservedBorder = (t as any).kind === 'vip' ? 'border-yellow-500' : (t as any).kind === 'haute' ? 'border-indigo-500' : 'border-foreground'
+                  const base = isReserved
+                    ? `bg-red-600 text-white ${reservedBorder} border-2 opacity-70 cursor-not-allowed`
+                    : pillClass((t as any).kind, isSelected)
+                  return (
+                    <div key={t.id} className="absolute" style={{ left: `${px}%`, top: `${py}%`, transform: 'translate(-50%, -50%)' }}>
+                      <div className="relative group">
+                        <button
+                          type="button"
+                          onClick={() => { if (!isReserved) toggle(t.table_number) }}
+                          aria-disabled={isReserved}
+                          className={`rounded-full shrink-0 p-0 overflow-hidden whitespace-nowrap text-[10px] md:text-sm leading-none font-medium border transition-colors inline-flex items-center justify-center self-center justify-self-center appearance-none select-none font-mono tracking-tight ${base}`}
+                          style={{ borderRadius: '9999px', width: '24px', height: '24px', minWidth: '24px', minHeight: '24px', maxWidth: '24px', maxHeight: '24px' }}
+                        >
+                          {t.table_number}
+                        </button>
+                        {isReserved && reservedInfo?.[t.table_number] && (
+                          <div className="pointer-events-none hidden md:group-hover:block absolute left-1/2 -translate-x-1/2 -top-2 -translate-y-full z-50 whitespace-nowrap rounded bg-black/90 text-white text-xs py-1 px-2 shadow-md">
+                            {reservedInfo[t.table_number].name} • {reservedInfo[t.table_number].guests} pers.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              {/* Fallback grid for unpositioned tables */}
+              {unpositioned.length > 0 && (
+                <div className="absolute inset-0 z-20 grid grid-cols-5 sm:grid-cols-6 gap-1 sm:gap-2 p-2 sm:p-4 place-items-center content-start">
+                  {unpositioned.map((t: any) => {
+                    const isReserved = (reserved || []).includes(t.table_number)
+                    const isSelected = selected.includes(t.table_number)
+                    const reservedBorder = (t as any).kind === 'vip' ? 'border-yellow-500' : (t as any).kind === 'haute' ? 'border-indigo-500' : 'border-foreground'
+                    const base = isReserved
+                      ? `bg-red-600 text-white ${reservedBorder} border-2 opacity-70 cursor-not-allowed`
+                      : pillClass((t as any).kind, isSelected)
+                    return (
+                      <div key={t.id} className="relative group">
+                        <button
+                          type="button"
+                          onClick={() => { if (!isReserved) toggle(t.table_number) }}
+                          aria-disabled={isReserved}
+                          className={`rounded-full shrink-0 p-0 overflow-hidden whitespace-nowrap text-[10px] md:text-sm leading-none font-medium border transition-colors inline-flex items-center justify-center appearance-none select-none font-mono tracking-tight box-content ${base}`}
+                          style={{ borderRadius: '9999px', width: '24px', height: '24px', minWidth: '24px', minHeight: '24px', maxWidth: '24px', maxHeight: '24px' }}
+                        >
+                          {t.table_number}
+                        </button>
+                        {isReserved && reservedInfo?.[t.table_number] && (
+                          <div className="pointer-events-none hidden md:group-hover:block absolute left-1/2 -translate-x-1/2 -top-2 -translate-y-full z-50 whitespace-nowrap rounded bg-black/90 text-white text-xs py-1 px-2 shadow-md">
+                            {reservedInfo[t.table_number].name} • {reservedInfo[t.table_number].guests} pers.
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </>
+          )
+        })()}
+      </div>
+      <div className="text-sm text-muted-foreground">Tables libres: {(tables?.length || 0) - (reserved?.length || 0)}</div>
+    </div>
+  )
+}
+
 export default function ReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [profile, setProfile] = useState<Profile | null>(null)
   const [venueFilter, setVenueFilter] = useState<'all' | 'Melkior' | "Bal'tazar">('all')
+  const [kindFilter, setKindFilter] = useState<'all' | 'assises' | 'haute' | 'vip'>('all')
+  const [depositFilter, setDepositFilter] = useState<'all' | 'with' | 'without'>('all')
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date()
     return today.toISOString().split('T')[0]
@@ -72,6 +201,22 @@ export default function ReservationsPage() {
   useEffect(() => {
     loadTableKinds()
   }, [])
+
+  const filteredReservations = useMemo(() => {
+    let list = reservations || []
+    if (kindFilter !== 'all') {
+      list = list.filter((r) => {
+        const tables = r?.reservation_tables || []
+        return tables.some((rt: any) => tableKinds[`${r.venue}:${rt.table_number}`] === kindFilter)
+      })
+    }
+    if (depositFilter === 'with') {
+      list = list.filter((r: any) => (r?.deposit_cents || 0) > 0)
+    } else if (depositFilter === 'without') {
+      list = list.filter((r: any) => !r?.deposit_cents || r.deposit_cents === 0)
+    }
+    return list
+  }, [reservations, kindFilter, tableKinds, depositFilter])
 
   const loadTableKinds = async () => {
     try {
@@ -347,7 +492,7 @@ export default function ReservationsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div className="w-full sm:max-w-xs">
               <label className="text-sm font-medium mb-2 block">Date des réservations</label>
               <div className="relative w-full min-w-0 overflow-visible">
@@ -373,6 +518,33 @@ export default function ReservationsPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="w-full sm:max-w-xs">
+              <label className="text-sm font-medium mb-2 block">Type de table</label>
+              <Select value={kindFilter} onValueChange={(v: any) => setKindFilter(v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous types</SelectItem>
+                  <SelectItem value="assises">Assises</SelectItem>
+                  <SelectItem value="haute">Haute</SelectItem>
+                  <SelectItem value="vip">VIP</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-full sm:max-w-xs">
+              <label className="text-sm font-medium mb-2 block">Acompte</label>
+              <Select value={depositFilter} onValueChange={(v: any) => setDepositFilter(v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous</SelectItem>
+                  <SelectItem value="with">Avec acompte</SelectItem>
+                  <SelectItem value="without">Sans acompte</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -385,7 +557,7 @@ export default function ReservationsPage() {
               <div className="mt-1 text-xl font-semibold inline-flex items-center">
                 {format(new Date(selectedDate), 'EEE dd MMMM', { locale: fr })}
                 <Badge variant="outline" className="ml-2">
-                  {reservations.length} réservation{reservations.length !== 1 ? 's' : ''}
+                  {filteredReservations.length} réservation{filteredReservations.length !== 1 ? 's' : ''}
                 </Badge>
               </div>
             </div>
@@ -394,7 +566,7 @@ export default function ReservationsPage() {
         <CardContent>
           {loading ? (
             <div className="text-center py-8">Chargement...</div>
-          ) : reservations.length === 0 ? (
+          ) : filteredReservations.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               Aucune réservation trouvée
             </div>
@@ -415,7 +587,7 @@ export default function ReservationsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {reservations.map((reservation) => (
+                    {filteredReservations.map((reservation) => (
                       <TableRow 
                         key={reservation.id}
                         className={getVenueRowClass(reservation.venue, reservation.arrived)}
@@ -486,7 +658,7 @@ export default function ReservationsPage() {
 
               {/* Vue mobile - cartes */}
               <div className="md:hidden space-y-3">
-                {reservations.map((reservation) => (
+                {filteredReservations.map((reservation) => (
                   <Card key={reservation.id} className={getVenueCardClass(reservation.venue, reservation.arrived)}>
                     <CardContent className="p-4">
                       {/* En-tête avec nom et statut */}
@@ -563,6 +735,19 @@ export default function ReservationsPage() {
                   </Card>
                 ))}
               </div>
+              {/* Total guests footer */}
+              <div className="pt-3 mt-2 border-t flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Total personnes</span>
+                <span className="font-semibold">
+                  {filteredReservations.reduce((sum: number, r: any) => sum + (r?.guests || 0), 0)} pers.
+                </span>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Total acomptes</span>
+                <span className="font-semibold">
+                  {formatEuro(filteredReservations.reduce((sum: number, r: any) => sum + (r?.deposit_cents || 0), 0))}
+                </span>
+              </div>
             </div>
           )}
         </CardContent>
@@ -591,7 +776,11 @@ function EditReservationForm({
     tables: [] as number[]
   })
   const [availableTables, setAvailableTables] = useState<Table[]>([])
+  const [allTables, setAllTables] = useState<Table[]>([])
+  const [reservedNumbers, setReservedNumbers] = useState<number[]>([])
+  const [reservedInfo, setReservedInfo] = useState<Record<number, { name: string, guests: number }>>({})
   const [loading, setLoading] = useState(false)
+  const [showTablePicker, setShowTablePicker] = useState(false)
 
   useEffect(() => {
     loadAvailableTables()
@@ -610,7 +799,7 @@ function EditReservationForm({
   }
 
   const loadAvailableTables = async () => {
-    const { data: allTables } = await supabase
+    const { data: allTablesData } = await supabase
       .from('tables')
       .select('*')
       .eq('venue', formData.venue)
@@ -618,15 +807,22 @@ function EditReservationForm({
 
     const { data: reservedTables } = await supabase
       .from('reservation_tables')
-      .select('table_number')
+      .select('table_number, reservations(name, guests)')
       .eq('venue', formData.venue)
       .eq('date', formData.date)
       .neq('reservation_id', reservation.id) // Exclure les tables de cette réservation
 
-    const reservedNumbers = reservedTables?.map(rt => rt.table_number) || []
-    const available = allTables?.filter(table => !reservedNumbers.includes(table.table_number)) || []
-    
+    const resNums = reservedTables?.map(rt => rt.table_number) || []
+    const available = (allTablesData || []).filter(table => !resNums.includes(table.table_number)) || []
+    setAllTables(allTablesData || [])
+    setReservedNumbers(resNums)
     setAvailableTables(available)
+    const info: Record<number, { name: string, guests: number }> = {}
+    ;(reservedTables || []).forEach((rt: any) => {
+      const r = rt.reservations
+      if (r && typeof rt.table_number === 'number') info[rt.table_number] = { name: r.name, guests: r.guests }
+    })
+    setReservedInfo(info)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -766,34 +962,30 @@ function EditReservationForm({
       </div>
 
       <div>
-        <label className="text-sm font-medium mb-2 block">
-          Tables disponibles ({availableTables.length} libres)
-        </label>
-        <div className="grid grid-cols-5 gap-2 max-h-32 overflow-y-auto">
-          {(availableTables || []).map((table) => (
-            <Button
-              key={table.id}
-              type="button"
-              variant={formData.tables.includes(table.table_number) ? "default" : "outline"}
-              size="sm"
-              onClick={() => {
-                const newTables = formData.tables.includes(table.table_number)
-                  ? formData.tables.filter(t => t !== table.table_number)
-                  : [...formData.tables, table.table_number]
-                setFormData({...formData, tables: newTables})
-              }}
-              className="inline-flex items-center gap-1"
-            >
-              {renderKindIcon(table.kind)}
-              {table.table_number}
-            </Button>
-          ))}
+        <label className="text-sm font-medium mb-2 block">Sélection des tables</label>
+        <div className="flex gap-2 items-center">
+          <Button type="button" variant="outline" onClick={() => setShowTablePicker(true)}>
+            Choisir la table
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            {formData.tables.length > 0 ? `Tables: ${formData.tables.sort((a,b)=>a-b).join(', ')}` : 'Aucune sélection'}
+          </span>
         </div>
-        {formData.tables.length > 0 && (
-          <p className="text-sm text-muted-foreground mt-2">
-            Tables sélectionnées: {formData.tables.sort((a, b) => a - b).join(', ')}
-          </p>
-        )}
+        <Dialog open={showTablePicker} onOpenChange={setShowTablePicker}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Choisir la table – {formData.venue}</DialogTitle>
+            </DialogHeader>
+            <TablePlanPicker
+              venue={formData.venue}
+              tables={allTables}
+              reserved={reservedNumbers}
+              reservedInfo={reservedInfo}
+              selected={formData.tables}
+              onChange={(tables) => setFormData({ ...formData, tables })}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="flex justify-end gap-2">
@@ -820,7 +1012,11 @@ function NewReservationForm({ onSuccess, defaultDate }: { onSuccess: () => void,
     tables: [] as number[]
   })
   const [availableTables, setAvailableTables] = useState<Table[]>([])
+  const [allTables, setAllTables] = useState<Table[]>([])
+  const [reservedNumbers, setReservedNumbers] = useState<number[]>([])
+  const [reservedInfo, setReservedInfo] = useState<Record<number, { name: string, guests: number }>>({})
   const [loading, setLoading] = useState(false)
+  const [showTablePicker, setShowTablePicker] = useState(false)
 
   useEffect(() => {
     loadAvailableTables()
@@ -828,7 +1024,7 @@ function NewReservationForm({ onSuccess, defaultDate }: { onSuccess: () => void,
 
   const loadAvailableTables = async () => {
     // Charger toutes les tables de la salle
-    const { data: allTables } = await supabase
+    const { data: allTablesData } = await supabase
       .from('tables')
       .select('*')
       .eq('venue', formData.venue)
@@ -837,14 +1033,21 @@ function NewReservationForm({ onSuccess, defaultDate }: { onSuccess: () => void,
     // Charger les tables déjà réservées
     const { data: reservedTables } = await supabase
       .from('reservation_tables')
-      .select('table_number')
+      .select('table_number, reservations(name, guests)')
       .eq('venue', formData.venue)
       .eq('date', formData.date)
 
-    const reservedNumbers = reservedTables?.map(rt => rt.table_number) || []
-    const available = allTables?.filter(table => !reservedNumbers.includes(table.table_number)) || []
-    
+    const resNums = reservedTables?.map(rt => rt.table_number) || []
+    const available = (allTablesData || []).filter(table => !resNums.includes(table.table_number)) || []
+    setAllTables(allTablesData || [])
+    setReservedNumbers(resNums)
     setAvailableTables(available)
+    const info: Record<number, { name: string, guests: number }> = {}
+    ;(reservedTables || []).forEach((rt: any) => {
+      const r = rt.reservations
+      if (r && typeof rt.table_number === 'number') info[rt.table_number] = { name: r.name, guests: r.guests }
+    })
+    setReservedInfo(info)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -977,34 +1180,30 @@ function NewReservationForm({ onSuccess, defaultDate }: { onSuccess: () => void,
       </div>
 
       <div>
-        <label className="text-sm font-medium mb-2 block">
-          Tables disponibles ({availableTables.length} libres)
-        </label>
-        <div className="grid grid-cols-5 gap-2 max-h-32 overflow-y-auto">
-          {(availableTables || []).map((table) => (
-            <Button
-              key={table.id}
-              type="button"
-              variant={formData.tables.includes(table.table_number) ? "default" : "outline"}
-              size="sm"
-              onClick={() => {
-                const newTables = formData.tables.includes(table.table_number)
-                  ? formData.tables.filter(t => t !== table.table_number)
-                  : [...formData.tables, table.table_number]
-                setFormData({...formData, tables: newTables})
-              }}
-              className="inline-flex items-center gap-1"
-            >
-              {renderKindIcon((table as any).kind)}
-              {table.table_number}
-            </Button>
-          ))}
+        <label className="text-sm font-medium mb-2 block">Sélection des tables</label>
+        <div className="flex gap-2 items-center">
+          <Button type="button" variant="outline" onClick={() => setShowTablePicker(true)}>
+            Choisir la table
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            {formData.tables.length > 0 ? `Tables: ${formData.tables.sort((a,b)=>a-b).join(', ')}` : 'Aucune sélection'}
+          </span>
         </div>
-        {formData.tables.length > 0 && (
-          <p className="text-sm text-muted-foreground mt-2">
-            Tables sélectionnées: {formData.tables.sort((a, b) => a - b).join(', ')}
-          </p>
-        )}
+        <Dialog open={showTablePicker} onOpenChange={setShowTablePicker}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Choisir la table – {formData.venue}</DialogTitle>
+            </DialogHeader>
+            <TablePlanPicker
+              venue={formData.venue}
+              tables={allTables}
+              reserved={reservedNumbers}
+              reservedInfo={reservedInfo}
+              selected={formData.tables}
+              onChange={(tables) => setFormData({ ...formData, tables })}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="flex justify-end gap-2">

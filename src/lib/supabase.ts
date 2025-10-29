@@ -28,6 +28,8 @@ export interface Table {
   table_number: number
   kind: TableKind
   capacity: number
+  pos_x?: number | null
+  pos_y?: number | null
   created_at: string
 }
 

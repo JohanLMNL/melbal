@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import AdminUsersPage from './users/page'
 import AdminTablesPage from './tables/page'
 import { Button } from '@/components/ui/button'
@@ -15,6 +16,9 @@ export default function AdminIndexPage() {
         <div className="flex gap-2">
           <Button variant={tab === 'users' ? 'default' : 'outline'} onClick={() => setTab('users')}>Utilisateurs</Button>
           <Button variant={tab === 'tables' ? 'default' : 'outline'} onClick={() => setTab('tables')}>Tables</Button>
+          <Link href="/admin/tables/positions">
+            <Button variant="outline">Plans</Button>
+          </Link>
         </div>
       </div>
 
