@@ -1,4 +1,4 @@
-// File: /Users/johan/Code/melbal/src/app/api/admin/tables/list/route.ts
+// File: /Users/johan/Code/melbal/melbal/src/app/api/admin/tables/list/route.ts
 import * as entry from '../../../../../../../src/app/api/admin/tables/list/route.js'
 import type { NextRequest } from 'next/server.js'
 

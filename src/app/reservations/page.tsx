@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { supabase, type Reservation, type Profile, type Table, canManageReservations } from '@/lib/supabase'
+import { supabase, type Reservation, type Profile, type Table, type ConsumptionType, type ReservationConsumption, canManageReservations } from '@/lib/supabase'
 import { formatEuro } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,14 +17,15 @@ import { fr } from 'date-fns/locale'
 import Image from 'next/image'
 
 // Helper icon renderer visible to all components in this module
-function renderKindIcon(kind?: 'assises' | 'haute' | 'vip') {
+function renderKindIcon(kind?: 'assises' | 'haute' | 'vip', size: 'sm' | 'md' = 'sm') {
+  const cls = size === 'md' ? 'h-4 w-4' : 'h-3 w-3'
   switch (kind) {
     case 'vip':
-      return <Crown className="h-3 w-3 text-yellow-500" />
+      return <Crown className={`${cls} text-yellow-500`} />
     case 'assises':
-      return <Armchair className="h-3 w-3 text-muted-foreground" />
+      return <Armchair className={`${cls} text-muted-foreground`} />
     case 'haute':
-      return <Wine className="h-3 w-3 text-indigo-500" />
+      return <Wine className={`${cls} text-indigo-500`} />
     default:
       return null
   }
@@ -41,6 +42,74 @@ function renderVenueLogo(venue: string, size: number = 14) {
       height={size}
       className="inline-block align-middle"
     />
+  )
+}
+
+function ConsumptionPicker({
+  consumptionTypes,
+  value,
+  onChange,
+}: {
+  consumptionTypes: ConsumptionType[]
+  value: { consumption_type_id: number; quantity: number }[]
+  onChange: (v: { consumption_type_id: number; quantity: number }[]) => void
+}) {
+  const addLine = () => {
+    if (consumptionTypes.length === 0) return
+    const usedIds = value.map(v => v.consumption_type_id)
+    const first = consumptionTypes.find(t => !usedIds.includes(t.id))
+    if (!first) return
+    onChange([...value, { consumption_type_id: first.id, quantity: 1 }])
+  }
+
+  const removeLine = (idx: number) => {
+    onChange(value.filter((_, i) => i !== idx))
+  }
+
+  const updateLine = (idx: number, field: 'consumption_type_id' | 'quantity', val: number) => {
+    onChange(value.map((line, i) => i === idx ? { ...line, [field]: val } : line))
+  }
+
+  return (
+    <div className="space-y-2">
+      {value.map((line, idx) => (
+        <div key={idx} className="flex items-center gap-2">
+          <Select
+            value={String(line.consumption_type_id)}
+            onValueChange={(v) => updateLine(idx, 'consumption_type_id', Number(v))}
+          >
+            <SelectTrigger className="flex-1 min-h-[44px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {consumptionTypes.map(t => (
+                <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            type="number"
+            min="1"
+            value={line.quantity}
+            onChange={(e) => updateLine(idx, 'quantity', Math.max(1, parseInt(e.target.value) || 1))}
+            className="w-20 text-center min-h-[44px]"
+          />
+          <Button type="button" variant="ghost" size="sm" onClick={() => removeLine(idx)}>
+            <Trash2 className="h-4 w-4 text-muted-foreground" />
+          </Button>
+        </div>
+      ))}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={addLine}
+        disabled={value.length >= consumptionTypes.length}
+      >
+        <Plus className="h-4 w-4 mr-1" />
+        Ajouter un produit
+      </Button>
+    </div>
   )
 }
 
@@ -215,6 +284,8 @@ export default function ReservationsPage() {
     } else if (depositFilter === 'without') {
       list = list.filter((r: any) => !r?.deposit_cents || r.deposit_cents === 0)
     }
+    const statusOrder: Record<string, number> = { en_attente: 0, arrive: 1, servi: 2 }
+    list = [...list].sort((a, b) => (statusOrder[a.status] ?? 0) - (statusOrder[b.status] ?? 0))
     return list
   }, [reservations, kindFilter, tableKinds, depositFilter])
 
@@ -263,34 +334,65 @@ export default function ReservationsPage() {
       .from('reservations')
       .select(`
         *,
-        created_by_profile:profiles!created_by (username, role),
-        reservation_tables (table_number)
+        reservation_tables (table_number),
+        reservation_consumptions (id, consumption_type_id, quantity, consumption_type:consumption_types(id, name, sort_order))
       `)
       .eq('date', selectedDate)
-      .order('arrived', { ascending: true })
       .order('created_at', { ascending: false })
 
     if (venueFilter !== 'all') {
       query = query.eq('venue', venueFilter)
     }
 
-
     const { data, error } = await query
 
     if (error) {
       console.error('Erreur chargement réservations:', error)
       toast.error('Erreur de chargement', { description: error.message })
-    } else {
-      console.log('Réservations chargées:', data)
-      setReservations(data || [])
+      setLoading(false)
+      return
     }
+
+    const rows = data || []
+
+    // Charger les profils séparément et les fusionner
+    const userIds = Array.from(new Set([
+      ...rows.map((r: any) => r.created_by).filter(Boolean),
+      ...rows.map((r: any) => r.served_by).filter(Boolean),
+    ]))
+
+    let profilesMap: Record<string, { username: string; role: string }> = {}
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, username, role')
+        .in('id', userIds)
+      if (profiles) {
+        profiles.forEach((p: any) => { profilesMap[p.id] = p })
+      }
+    }
+
+    const enriched = rows.map((r: any) => ({
+      ...r,
+      created_by_profile: r.created_by ? profilesMap[r.created_by] ?? null : null,
+      served_by_profile: r.served_by ? profilesMap[r.served_by] ?? null : null,
+    }))
+
+    setReservations(enriched)
     setLoading(false)
   }
 
-  const toggleArrived = async (reservation: Reservation) => {
+  const cycleStatus = async (reservation: Reservation) => {
+    const next = reservation.status === 'en_attente' ? 'arrive' : reservation.status === 'arrive' ? 'servi' : 'en_attente'
+    const update: Record<string, any> = { status: next }
+    if (next === 'servi' && profile?.id) {
+      update.served_by = profile.id
+    } else if (next !== 'servi') {
+      update.served_by = null
+    }
     const { error } = await supabase
       .from('reservations')
-      .update({ arrived: !reservation.arrived })
+      .update(update)
       .eq('id', reservation.id)
 
     if (error) {
@@ -355,20 +457,39 @@ export default function ReservationsPage() {
     }
   }
 
-  const getVenueRowClass = (venue: string, arrived: boolean) => {
-    const baseClass = arrived ? 'opacity-40' : ''
+  const getVenueRowClass = (venue: string, status: string) => {
+    const statusClass = status === 'servi' ? 'opacity-40 outline outline-1 outline-green-500' : status === 'arrive' ? 'outline outline-1 outline-red-500' : ''
     if (venue === "Bal'tazar") {
-      return `${baseClass} bg-red-900/10 hover:bg-red-900/20`
+      return `${statusClass} bg-red-900/10 hover:bg-red-900/20`
     }
-    return baseClass
+    return statusClass
   }
 
-  const getVenueCardClass = (venue: string, arrived: boolean) => {
-    const baseClass = arrived ? 'opacity-40' : ''
-    if (venue === "Bal'tazar") {
-      return `${baseClass} bg-red-900/10 border-red-900/20`
+  const getVenueCardClass = (venue: string, status: string) => {
+    if (status === 'servi') {
+      const base = venue === "Bal'tazar" ? 'bg-red-900/10' : ''
+      return `opacity-40 border-green-500 border-2 ${base}`
     }
-    return baseClass
+    if (status === 'arrive') {
+      const base = venue === "Bal'tazar" ? 'bg-red-900/10' : ''
+      return `border-red-500 border-2 ${base}`
+    }
+    if (venue === "Bal'tazar") {
+      return 'bg-red-900/10 border-red-900/20'
+    }
+    return ''
+  }
+
+  const statusLabel = (status: string) => {
+    if (status === 'arrive') return 'Arrivé'
+    if (status === 'servi') return 'Servi'
+    return 'En attente'
+  }
+
+  const statusVariant = (status: string): 'default' | 'outline' | 'secondary' => {
+    if (status === 'arrive') return 'default'
+    if (status === 'servi') return 'secondary'
+    return 'outline'
   }
 
   
@@ -582,7 +703,9 @@ export default function ReservationsPage() {
                       <TableHead>Tables</TableHead>
                       <TableHead>Personnes</TableHead>
                       <TableHead>Acompte</TableHead>
-                      <TableHead>Arrivé</TableHead>
+                      <TableHead>Statut</TableHead>
+                      <TableHead>Servi par</TableHead>
+                      <TableHead>Consommations</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -590,7 +713,7 @@ export default function ReservationsPage() {
                     {filteredReservations.map((reservation) => (
                       <TableRow 
                         key={reservation.id}
-                        className={getVenueRowClass(reservation.venue, reservation.arrived)}
+                        className={getVenueRowClass(reservation.venue, reservation.status)}
                       >
                         <TableCell className="font-medium">{reservation.name}</TableCell>
                         <TableCell>
@@ -625,12 +748,28 @@ export default function ReservationsPage() {
                         </TableCell>
                         <TableCell>
                           <Button
-                            variant={reservation.arrived ? "default" : "outline"}
+                            variant={statusVariant(reservation.status)}
                             size="sm"
-                            onClick={() => toggleArrived(reservation)}
+                            onClick={() => cycleStatus(reservation)}
                           >
-                            {reservation.arrived ? 'Arrivé' : 'En attente'}
+                            {statusLabel(reservation.status)}
                           </Button>
+                        </TableCell>
+                        <TableCell>
+                          {reservation.served_by_profile ? (
+                            <span className="text-xs text-muted-foreground">{reservation.served_by_profile.username}</span>
+                          ) : null}
+                        </TableCell>
+                        <TableCell>
+                          {reservation.reservation_consumptions && reservation.reservation_consumptions.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {reservation.reservation_consumptions.map((c, i) => (
+                                <Badge key={i} variant="secondary" className="text-xs whitespace-nowrap">
+                                  {c.quantity}x {(c as any).consumption_type?.name ?? `#${c.consumption_type_id}`}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
@@ -659,78 +798,87 @@ export default function ReservationsPage() {
               {/* Vue mobile - cartes */}
               <div className="md:hidden space-y-3">
                 {filteredReservations.map((reservation) => (
-                  <Card key={reservation.id} className={getVenueCardClass(reservation.venue, reservation.arrived)}>
+                  <Card key={reservation.id} className={getVenueCardClass(reservation.venue, reservation.status)}>
                     <CardContent className="p-4">
-                      {/* En-tête avec nom et statut */}
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-lg truncate">{reservation.name}</h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="outline" className="text-xs inline-flex items-center gap-1">
-                              {renderVenueLogo(reservation.venue, 18)}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground flex flex-wrap gap-2">
-                              Tables:
-                              {reservation.reservation_tables && reservation.reservation_tables.length > 0 ? (
-                                reservation.reservation_tables.map((rt, idx) => {
-                                  const kind = tableKinds[`${reservation.venue}:${rt.table_number}`]
-                                  return (
-                                    <span key={`${reservation.id}-m-${rt.table_number}-${idx}`} className="inline-flex items-center gap-1">
-                                      {renderKindIcon(kind)}
-                                      <span className="text-base font-bold leading-none">{rt.table_number}</span>
-                                    </span>
-                                  )
-                                })
-                              ) : (
-                                <span className="ml-1">Aucune</span>
-                              )}
-                            </span>
-                          </div>
-                        </div>
+                      {/* Ligne 1 : logo + nom en majuscule */}
+                      <div className="flex items-center gap-2 min-w-0 mb-1">
+                        {renderVenueLogo(reservation.venue, 20)}
+                        <h3 className="font-bold text-base uppercase tracking-wide truncate">{reservation.name}</h3>
+                      </div>
+                      {/* Ligne 2 : statut */}
+                      <div className="flex justify-center mb-2">
                         <Button
-                          variant={reservation.arrived ? "default" : "outline"}
+                          variant={statusVariant(reservation.status)}
                           size="sm"
-                          onClick={() => toggleArrived(reservation)}
-                          className="ml-3 shrink-0"
+                          onClick={() => cycleStatus(reservation)}
                         >
-                          {reservation.arrived ? 'Arrivé' : 'En attente'}
+                          {statusLabel(reservation.status)}
                         </Button>
                       </div>
-                      
+
+                      {/* Ligne 2 : tables */}
+                      <div className="flex items-center justify-center gap-2 mb-3 flex-wrap">
+                        {reservation.reservation_tables && reservation.reservation_tables.length > 0 ? (
+                          reservation.reservation_tables.map((rt, idx) => {
+                            const kind = tableKinds[`${reservation.venue}:${rt.table_number}`]
+                            return (
+                              <span key={`${reservation.id}-m-${rt.table_number}-${idx}`} className="inline-flex items-center gap-0.5 text-muted-foreground">
+                                {renderKindIcon(kind, 'md')}
+                                <span className="font-bold text-foreground text-base">{rt.table_number}</span>
+                              </span>
+                            )
+                          })
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Aucune table</span>
+                        )}
+                      </div>
+
                       {/* Informations détaillées */}
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div className="flex items-center gap-2">
+                      <div className="flex justify-center gap-6 mb-4">
+                        <div className="flex items-center gap-1.5">
                           <Users className="h-4 w-4 text-muted-foreground" />
                           <span className="text-sm font-medium">{reservation.guests} pers.</span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                           <Euro className="h-4 w-4 text-muted-foreground" />
                           <span className="text-sm font-medium">{formatEuro(reservation.deposit_cents)}</span>
                         </div>
                       </div>
-                      
-                      
+                      {reservation.reservation_consumptions && reservation.reservation_consumptions.length > 0 && (
+                        <div className="flex flex-wrap justify-center gap-1 mb-3">
+                          {reservation.reservation_consumptions.map((c, i) => (
+                            <Badge key={i} variant="secondary" className="text-xs">
+                              {c.quantity}x {(c as any).consumption_type?.name ?? `#${c.consumption_type_id}`}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+
                       {/* Actions */}
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
+                      <div className="flex justify-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
                           onClick={() => openEditDialog(reservation)}
-                          className="flex-1"
                         >
-                          <Edit className="h-4 w-4 mr-2" />
-                          Modifier
+                          <Edit className="h-3.5 w-3.5" />
                         </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
                           onClick={() => openDeleteDialog(reservation)}
-                          className="flex-1"
                         >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Supprimer
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
+                      {reservation.status === 'servi' && reservation.served_by_profile && (
+                        <div className="flex justify-center items-center gap-1 mt-3 text-xs text-muted-foreground">
+                          <Users className="h-3 w-3" />
+                          <span>Servi par <span className="font-medium text-foreground">{reservation.served_by_profile.username}</span></span>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -775,6 +923,10 @@ function EditReservationForm({
     notes: reservation.notes || '',
     tables: [] as number[]
   })
+  const [consumptions, setConsumptions] = useState<{ consumption_type_id: number; quantity: number }[]>(
+    (reservation.reservation_consumptions || []).map(c => ({ consumption_type_id: c.consumption_type_id, quantity: c.quantity }))
+  )
+  const [consumptionTypes, setConsumptionTypes] = useState<ConsumptionType[]>([])
   const [availableTables, setAvailableTables] = useState<Table[]>([])
   const [allTables, setAllTables] = useState<Table[]>([])
   const [reservedNumbers, setReservedNumbers] = useState<number[]>([])
@@ -786,6 +938,12 @@ function EditReservationForm({
     loadAvailableTables()
     loadCurrentTables()
   }, [formData.venue, formData.date])
+
+  useEffect(() => {
+    supabase.from('consumption_types').select('*').order('sort_order').then(({ data }) => {
+      if (data) setConsumptionTypes(data)
+    })
+  }, [])
 
   const loadCurrentTables = async () => {
     const { data } = await supabase
@@ -866,6 +1024,20 @@ function EditReservationForm({
           .insert(tableInserts)
 
         if (tablesError) throw tablesError
+      }
+
+      // Mettre à jour les consommations : supprimer les anciennes, insérer les nouvelles
+      await supabase.from('reservation_consumptions').delete().eq('reservation_id', reservation.id)
+      if (consumptions.length > 0) {
+        const consumptionInserts = consumptions.map(c => ({
+          reservation_id: reservation.id,
+          consumption_type_id: c.consumption_type_id,
+          quantity: c.quantity
+        }))
+        const { error: consumptionsError } = await supabase
+          .from('reservation_consumptions')
+          .insert(consumptionInserts)
+        if (consumptionsError) throw consumptionsError
       }
 
       toast.success('Réservation modifiée avec succès')
@@ -988,6 +1160,15 @@ function EditReservationForm({
         </Dialog>
       </div>
 
+      <div>
+        <label className="text-sm font-medium mb-2 block">Consommations prévues</label>
+        <ConsumptionPicker
+          consumptionTypes={consumptionTypes}
+          value={consumptions}
+          onChange={setConsumptions}
+        />
+      </div>
+
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onCancel}>
           Annuler
@@ -1011,6 +1192,8 @@ function NewReservationForm({ onSuccess, defaultDate }: { onSuccess: () => void,
     notes: '',
     tables: [] as number[]
   })
+  const [consumptions, setConsumptions] = useState<{ consumption_type_id: number; quantity: number }[]>([])
+  const [consumptionTypes, setConsumptionTypes] = useState<ConsumptionType[]>([])
   const [availableTables, setAvailableTables] = useState<Table[]>([])
   const [allTables, setAllTables] = useState<Table[]>([])
   const [reservedNumbers, setReservedNumbers] = useState<number[]>([])
@@ -1021,6 +1204,12 @@ function NewReservationForm({ onSuccess, defaultDate }: { onSuccess: () => void,
   useEffect(() => {
     loadAvailableTables()
   }, [formData.venue, formData.date])
+
+  useEffect(() => {
+    supabase.from('consumption_types').select('*').order('sort_order').then(({ data }) => {
+      if (data) setConsumptionTypes(data)
+    })
+  }, [])
 
   const loadAvailableTables = async () => {
     // Charger toutes les tables de la salle
@@ -1088,6 +1277,19 @@ function NewReservationForm({ onSuccess, defaultDate }: { onSuccess: () => void,
           .insert(tableInserts)
 
         if (tablesError) throw tablesError
+      }
+
+      // Ajouter les consommations
+      if (consumptions.length > 0) {
+        const consumptionInserts = consumptions.map(c => ({
+          reservation_id: reservation.id,
+          consumption_type_id: c.consumption_type_id,
+          quantity: c.quantity
+        }))
+        const { error: consumptionsError } = await supabase
+          .from('reservation_consumptions')
+          .insert(consumptionInserts)
+        if (consumptionsError) throw consumptionsError
       }
 
       toast.success('Réservation créée avec succès')
@@ -1204,6 +1406,15 @@ function NewReservationForm({ onSuccess, defaultDate }: { onSuccess: () => void,
             />
           </DialogContent>
         </Dialog>
+      </div>
+
+      <div>
+        <label className="text-sm font-medium mb-2 block">Consommations prévues</label>
+        <ConsumptionPicker
+          consumptionTypes={consumptionTypes}
+          value={consumptions}
+          onChange={setConsumptions}
+        />
       </div>
 
       <div className="flex justify-end gap-2">

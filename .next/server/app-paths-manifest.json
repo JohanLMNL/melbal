@@ -1,7 +1,8 @@
 {
-  "/api/admin/tables/list/route": "app/api/admin/tables/list/route.js",
   "/page": "app/page.js",
-  "/api/admin/tables/positions/route": "app/api/admin/tables/positions/route.js",
+  "/api/admin/tables/list/route": "app/api/admin/tables/list/route.js",
+  "/auth/login/page": "app/auth/login/page.js",
   "/reservations/page": "app/reservations/page.js",
-  "/admin/tables/positions/page": "app/admin/tables/positions/page.js"
+  "/admin/tables/positions/page": "app/admin/tables/positions/page.js",
+  "/admin/page": "app/admin/page.js"
 }

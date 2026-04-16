@@ -99,16 +99,16 @@ export default function AdminTablesPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Grid3X3 className="h-8 w-8" />
+          <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+            <Grid3X3 className="h-6 w-6" />
             Gestion des tables
           </h1>
-          <p className="text-muted-foreground">Ajouter, modifier et supprimer les tables par salle</p>
+          <p className="text-muted-foreground text-sm">Ajouter, modifier et supprimer les tables par salle</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
           <Select value={venueFilter} onValueChange={(v: Venue) => setVenueFilter(v)}>
             <SelectTrigger className="w-40">
               <SelectValue />

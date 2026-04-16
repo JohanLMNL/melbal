@@ -42,11 +42,29 @@ export interface Reservation {
   deposit_cents: number | null
   phone: string | null
   notes: string | null
-  arrived: boolean
+  status: string
   created_by: string
   created_at: string
+  served_by?: string | null
   created_by_profile?: Profile
+  served_by_profile?: Profile | null
   reservation_tables?: { table_number: number }[]
+  reservation_consumptions?: ReservationConsumption[]
+}
+
+export interface ConsumptionType {
+  id: number
+  name: string
+  sort_order: number
+  created_at: string
+}
+
+export interface ReservationConsumption {
+  id?: number
+  reservation_id: number
+  consumption_type_id: number
+  quantity: number
+  consumption_type?: ConsumptionType
 }
 
 export interface ReservationTable {

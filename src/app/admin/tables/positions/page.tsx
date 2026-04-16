@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
+import { ArrowLeft } from "lucide-react"
 import { type Table as TableModel, type Venue } from "@/lib/supabase"
 
 const VENUES: Venue[] = ["Melkior", "Bal'tazar"]
@@ -87,10 +89,18 @@ export default function PositionsEditorPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Éditeur de position des tables</h1>
+    <div className="container mx-auto p-4 sm:p-6 space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
+          <Link href="/admin">
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Retour
+            </Button>
+          </Link>
+          <h1 className="text-xl sm:text-2xl font-semibold">Éditeur de position des tables</h1>
+        </div>
+        <div className="flex items-center gap-2">
           <Select value={venue} onValueChange={(v: any) => setVenue(v)}>
             <SelectTrigger className="w-40">
               <SelectValue />

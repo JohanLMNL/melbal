@@ -228,22 +228,22 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Users className="h-8 w-8" />
+          <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+            <Users className="h-6 w-6" />
             Gestion des utilisateurs
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Administration des comptes utilisateurs
           </p>
         </div>
         <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
           <DialogTrigger asChild>
-            <Button>
+            <Button size="sm">
               <UserPlus className="h-4 w-4 mr-2" />
-              Ajouter un utilisateur
+              Ajouter
             </Button>
           </DialogTrigger>
           <DialogContent>
@@ -334,101 +334,109 @@ export default function AdminUsersPage() {
               Aucun utilisateur trouvé
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Pseudo</TableHead>
-                  <TableHead>Rôle</TableHead>
-                  <TableHead>Créé le</TableHead>
-                  <TableHead>Actions</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Vue desktop */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Pseudo</TableHead>
+                      <TableHead>Rôle</TableHead>
+                      <TableHead>Créé le</TableHead>
+                      <TableHead>Changer rôle</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {profiles.map((profile) => (
+                      <TableRow key={profile.id}>
+                        <TableCell className="font-medium">
+                          {profile.username}
+                          {profile.id === currentProfile?.id && (
+                            <Badge variant="outline" className="ml-2">Vous</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getRoleColor(profile.role)} className="flex items-center gap-1 w-fit">
+                            {getRoleIcon(profile.role)}
+                            {getRoleLabel(profile.role)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{format(new Date(profile.created_at), 'dd/MM/yyyy HH:mm')}</TableCell>
+                        <TableCell>
+                          <Select
+                            value={profile.role}
+                            onValueChange={(newRole: 'admin' | 'server' | 'porter' | 'boss') => updateRole(profile.id, newRole)}
+                            disabled={profile.id === currentProfile?.id}
+                          >
+                            <SelectTrigger className="w-36">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="boss"><div className="flex items-center gap-2"><Crown className="h-4 w-4" />Boss</div></SelectItem>
+                              <SelectItem value="admin"><div className="flex items-center gap-2"><Shield className="h-4 w-4" />Admin</div></SelectItem>
+                              <SelectItem value="server"><div className="flex items-center gap-2"><Server className="h-4 w-4" />Serveur</div></SelectItem>
+                              <SelectItem value="porter"><div className="flex items-center gap-2"><Package className="h-4 w-4" />Portier</div></SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          {profile.id !== currentProfile?.id && (
+                            <Button variant="destructive" size="sm" onClick={() => openDeleteDialog(profile.id, profile.username)} disabled={deleting === profile.id}>
+                              {deleting === profile.id ? 'Suppression...' : <Trash2 className="h-4 w-4" />}
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Vue mobile - cards */}
+              <div className="md:hidden space-y-3">
                 {profiles.map((profile) => (
-                  <TableRow key={profile.id}>
-                    <TableCell className="font-medium">
-                      {profile.username}
-                      {profile.id === currentProfile?.id && (
-                        <Badge variant="outline" className="ml-2">Vous</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={getRoleColor(profile.role)} className="flex items-center gap-1 w-fit">
+                  <div key={profile.id} className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{profile.username}</span>
+                        {profile.id === currentProfile?.id && (
+                          <Badge variant="outline" className="text-xs">Vous</Badge>
+                        )}
+                      </div>
+                      <Badge variant={getRoleColor(profile.role)} className="flex items-center gap-1">
                         {getRoleIcon(profile.role)}
                         {getRoleLabel(profile.role)}
                       </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {format(new Date(profile.created_at), 'dd/MM/yyyy HH:mm')}
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={profile.role}
-                        onValueChange={(newRole: 'admin' | 'server' | 'porter' | 'boss') => 
-                          updateRole(profile.id, newRole)
-                        }
-                        disabled={profile.id === currentProfile?.id}
-                      >
-                        <SelectTrigger className="w-40">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="boss">
-                            <div className="flex items-center gap-2">
-                              <Crown className="h-4 w-4" />
-                              Boss
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="admin">
-                            <div className="flex items-center gap-2">
-                              <Shield className="h-4 w-4" />
-                              Administrateur
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="server">
-                            <div className="flex items-center gap-2">
-                              <Server className="h-4 w-4" />
-                              Serveur
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="porter">
-                            <div className="flex items-center gap-2">
-                              <Package className="h-4 w-4" />
-                              Portier
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {profile.id === currentProfile?.id && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Impossible de modifier votre propre rôle
-                        </p>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {profile.id !== currentProfile?.id && (
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => openDeleteDialog(profile.id, profile.username)}
-                          disabled={deleting === profile.id}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Créé le {format(new Date(profile.created_at), 'dd/MM/yyyy')}
+                    </p>
+                    {profile.id !== currentProfile?.id && (
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={profile.role}
+                          onValueChange={(newRole: 'admin' | 'server' | 'porter' | 'boss') => updateRole(profile.id, newRole)}
                         >
-                          {deleting === profile.id ? (
-                            'Suppression...'
-                          ) : (
-                            <>
-                              <Trash2 className="h-4 w-4 mr-1" />
-                              Supprimer
-                            </>
-                          )}
+                          <SelectTrigger className="flex-1 h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="boss"><div className="flex items-center gap-2"><Crown className="h-4 w-4" />Boss</div></SelectItem>
+                            <SelectItem value="admin"><div className="flex items-center gap-2"><Shield className="h-4 w-4" />Admin</div></SelectItem>
+                            <SelectItem value="server"><div className="flex items-center gap-2"><Server className="h-4 w-4" />Serveur</div></SelectItem>
+                            <SelectItem value="porter"><div className="flex items-center gap-2"><Package className="h-4 w-4" />Portier</div></SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button variant="destructive" size="sm" onClick={() => openDeleteDialog(profile.id, profile.username)} disabled={deleting === profile.id}>
+                          {deleting === profile.id ? '...' : <Trash2 className="h-4 w-4" />}
                         </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
+                      </div>
+                    )}
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

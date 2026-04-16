@@ -1,4 +1,4 @@
-// File: /Users/johan/Code/melbal/src/app/admin/tables/positions/page.tsx
+// File: /Users/johan/Code/melbal/melbal/src/app/admin/tables/positions/page.tsx
 import * as entry from '../../../../../../src/app/admin/tables/positions/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
