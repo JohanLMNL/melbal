@@ -1,7 +1,12 @@
-"use client";
+'use client'
 
-import React, { useMemo, useState } from "react";
-import Link from "next/link";
+import React, { useMemo, useState } from 'react'
+import Link from 'next/link'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Calculator, Home, Plus, Minus, Divide, RotateCcw, History } from 'lucide-react'
 
 type HistoryItem = {
   id: string;
@@ -164,195 +169,192 @@ export default function EncaissementPage() {
   const remaining = useMemo(() => getRemaining(), [history]);
 
   return (
-    <main className="min-h-dvh w-full bg-black text-white">
-      <div className="mx-auto w-full max-w-screen-sm px-4 py-5 sm:py-8">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Encaissement</h1>
-
-        <div className="mt-3">
-          <Link
-            href="/"
-            className="inline-flex items-center rounded-lg border border-gray-700 bg-gray-800/80 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-600 focus:ring-offset-2 focus:ring-offset-gray-900 active:scale-[0.99]"
-          >
+    <div className="container mx-auto p-6 pb-24 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold flex items-center gap-2">
+          <Calculator className="h-6 w-6" />
+          Encaissement
+        </h1>
+        <Link href="/">
+          <Button variant="outline" size="sm">
+            <Home className="h-4 w-4 mr-2" />
             Accueil
-          </Link>
-        </div>
+          </Button>
+        </Link>
+      </div>
 
-        <section className="mt-3 rounded-2xl border border-gray-800 bg-gray-900 p-4">
-          <div className="text-sm text-gray-400">Montant restant</div>
-          <div className="mt-1 text-3xl font-extrabold">{formatEUR(remaining)}</div>
-        </section>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-muted-foreground text-sm font-normal">Montant restant</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-4xl font-bold">{formatEUR(remaining)}</div>
+        </CardContent>
+      </Card>
 
-        <section className="mt-5 space-y-4 rounded-2xl border border-gray-800 bg-gray-900 p-4 shadow-sm sm:mt-6 sm:p-5">
-          <form onSubmit={handleAddSubmit} className="flex flex-col gap-3 sm:flex-row">
-            <label className="flex-1">
-              <span className="mb-2 block text-sm font-medium text-gray-300">
-                Montant à ajouter (initial ou supplémentaire)
-              </span>
-              <input
-                inputMode="decimal"
-                step="0.01"
-                placeholder="Ex: 25,50"
-                value={addInput}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAddInput(e.target.value)}
-                enterKeyHint="done"
-                onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    const v = toNumber(addInput);
-                    if (!Number.isFinite(v) || v <= 0) return;
-                    addAmount(v);
-                    setAddInput("");
-                  }
-                }}
-                className="w-full rounded-xl border border-gray-700 bg-gray-800 text-white placeholder:text-gray-400 px-4 py-3 text-base outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-600/40"
-              />
-            </label>
-            <button
-              type="submit"
-              className="h-12 rounded-xl bg-gray-900 px-5 text-base font-semibold text-white active:scale-[0.99] sm:self-end sm:h-[52px]"
-            >
-              Ajouter
-            </button>
-          </form>
+        <Card>
+          <CardHeader>
+            <CardTitle>Opérations</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <form onSubmit={handleAddSubmit} className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1">
+                <label className="text-sm font-medium mb-2 block text-muted-foreground">
+                  Montant à ajouter
+                </label>
+                <Input
+                  inputMode="decimal"
+                  placeholder="Ex: 25,50"
+                  value={addInput}
+                  onChange={(e) => setAddInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      const v = toNumber(addInput)
+                      if (!Number.isFinite(v) || v <= 0) return
+                      addAmount(v)
+                      setAddInput('')
+                    }
+                  }}
+                />
+              </div>
+              <Button type="submit" className="sm:self-end">
+                <Plus className="h-4 w-4 mr-2" />
+                Ajouter
+              </Button>
+            </form>
 
-          <form onSubmit={handleDeductSubmit} className="flex flex-col gap-3 sm:flex-row">
-            <label className="flex-1">
-              <span className="mb-2 block text-sm font-medium text-gray-300">Montant à déduire</span>
-              <input
-                inputMode="decimal"
-                step="0.01"
-                placeholder="Ex: 10"
-                value={deductInput}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDeductInput(e.target.value)}
-                enterKeyHint="done"
-                onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    const v = toNumber(deductInput);
-                    if (!Number.isFinite(v) || v <= 0) return;
-                    deductAmount(v);
-                    setDeductInput("");
-                  }
-                }}
-                className="w-full rounded-xl border border-gray-700 bg-gray-800 text-white placeholder:text-gray-400 px-4 py-3 text-base outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-600/40"
-              />
-            </label>
-            <button
-              type="submit"
-              className="h-12 rounded-xl bg-red-600 px-5 text-base font-semibold text-white active:scale-[0.99] sm:self-end sm:h-[52px]"
-            >
-              Déduire
-            </button>
-          </form>
+            <form onSubmit={handleDeductSubmit} className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1">
+                <label className="text-sm font-medium mb-2 block text-muted-foreground">
+                  Montant à déduire
+                </label>
+                <Input
+                  inputMode="decimal"
+                  placeholder="Ex: 10"
+                  value={deductInput}
+                  onChange={(e) => setDeductInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      const v = toNumber(deductInput)
+                      if (!Number.isFinite(v) || v <= 0) return
+                      deductAmount(v)
+                      setDeductInput('')
+                    }
+                  }}
+                />
+              </div>
+              <Button type="submit" variant="destructive" className="sm:self-end">
+                <Minus className="h-4 w-4 mr-2" />
+                Déduire
+              </Button>
+            </form>
 
-          <div className="grid grid-cols-1 gap-3">
-            <div className="flex items-end gap-3">
-              <label className="flex-1">
-                <span className="mb-2 block text-sm font-medium text-gray-300">
-                  Diviser en N parts (arrondies au 0,5 supérieur)
-                </span>
-                <input
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1">
+                <label className="text-sm font-medium mb-2 block text-muted-foreground">
+                  Diviser en N parts (arrondi au 0,5)
+                </label>
+                <Input
                   inputMode="numeric"
-                  pattern="[0-9]*"
                   placeholder="Ex: 3"
                   value={partsInput}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPartsInput(e.target.value.replace(/[^0-9]/g, ""))}
-                  className="w-full rounded-xl border border-gray-700 bg-gray-800 text-white placeholder:text-gray-400 px-4 py-3 text-base outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-600/40"
+                  onChange={(e) => setPartsInput(e.target.value.replace(/[^0-9]/g, ''))}
                 />
-              </label>
-              <button
+              </div>
+              <Button 
                 onClick={() => {
-                  const n = Number(partsInput || "0");
-                  if (!Number.isFinite(n) || n <= 0) return setDivided(null);
-                  divideRemaining(n);
+                  const n = Number(partsInput || '0')
+                  if (!Number.isFinite(n) || n <= 0) return setDivided(null)
+                  divideRemaining(n)
                 }}
-                className="h-12 rounded-xl bg-blue-600 px-5 text-base font-semibold text-white active:scale-[0.99] sm:h-[52px]"
+                variant="secondary"
+                className="sm:self-end"
               >
+                <Divide className="h-4 w-4 mr-2" />
                 Diviser
-              </button>
+              </Button>
             </div>
-          </div>
 
-          {divided && (
-            <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
-              <div className="mb-2 text-sm font-medium text-gray-300">Parts proposées</div>
-              {divided.length === 0 ? (
-                <div className="text-sm text-gray-400">Aucun montant à répartir.</div>
-              ) : (
-                <div className="flex flex-wrap gap-2 text-base font-semibold text-gray-100">
-                  {(() => {
-                    const counts = new Map<number, number>();
-                    divided.forEach((v: number) => {
-                      const key = Number(v.toFixed(2));
-                      counts.set(key, (counts.get(key) ?? 0) + 1);
-                    });
-                    const entries = Array.from(counts.entries()).sort((a, b) => a[0] - b[0]);
-                    return entries.map(([value, count]) => (
-                      <div key={value} className="inline-flex items-center gap-1.5">
-                        <span className="text-gray-300">{count}*</span>
-                        <button
-                          type="button"
-                          onClick={() => handleClickValue(value)}
-                          className="inline-flex items-center rounded-lg border border-gray-700 bg-gray-800/80 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-600 focus:ring-offset-2 focus:ring-offset-gray-900 active:scale-[0.99] cursor-pointer transition"
-                          title={`Déduire ${formatEUR(value)}`}
-                        >
-                          {formatShortEUR(value)}
-                        </button>
-                      </div>
-                    ));
-                  })()}
-                </div>
-              )}
-              {divided.length > 0 && (
-                <div className="mt-3 text-sm text-gray-400">
-                  Total des parts: {formatEUR(divided.reduce((s: number, v: number) => s + v, 0))}
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="pt-2">
-            <button
-              onClick={resetEncaissement}
-              className="w-full h-12 rounded-xl bg-gray-700 px-5 text-base font-semibold text-white active:scale-[0.99]"
-            >
-              Réinitialiser l'encaissement
-            </button>
-          </div>
-        </section>
-
-        <section className="mt-6 rounded-2xl border border-gray-800 bg-gray-900 p-4 shadow-sm sm:p-5">
-          <div className="mb-3 text-base font-semibold">Historique de l'encaissement</div>
-          {history.length === 0 ? (
-            <div className="text-sm text-gray-400">Aucune opération pour le moment.</div>
-          ) : (
-            <ul className="space-y-2">
-              {history.map((h: HistoryItem) => (
-                <li
-                  key={h.id}
-                  className="flex items-center justify-between rounded-xl border border-gray-800 bg-gray-900 px-3 py-2"
-                >
-                  <div className="flex items-center gap-2 text-sm">
-                    <span
-                      className={
-                        h.type === "add"
-                          ? "inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700"
-                          : "inline-flex items-center rounded-md bg-red-50 px-2 py-0.5 font-medium text-red-700"
-                      }
-                    >
-                      {h.type === "add" ? "+" : "-"}
-                    </span>
-                    <span className="font-medium">{formatEUR(h.amount)}</span>
+            {divided && (
+              <div className="rounded-lg border bg-muted p-4">
+                <div className="mb-2 text-sm font-medium">Parts proposées</div>
+                {divided.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">Aucun montant à répartir.</div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {(() => {
+                      const counts = new Map<number, number>()
+                      divided.forEach((v: number) => {
+                        const key = Number(v.toFixed(2))
+                        counts.set(key, (counts.get(key) ?? 0) + 1)
+                      })
+                      const entries = Array.from(counts.entries()).sort((a, b) => a[0] - b[0])
+                      return entries.map(([value, count]) => (
+                        <div key={value} className="inline-flex items-center gap-1.5">
+                          <Badge variant="outline">{count}×</Badge>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleClickValue(value)}
+                            title={`Déduire ${formatEUR(value)}`}
+                          >
+                            {formatShortEUR(value)}
+                          </Button>
+                        </div>
+                      ))
+                    })()}
                   </div>
-                  <time className="text-xs text-gray-500">
-                    {new Date(h.at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                  </time>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </div>
-    </main>
-  );
+                )}
+                {divided.length > 0 && (
+                  <div className="mt-3 text-sm text-muted-foreground">
+                    Total des parts: {formatEUR(divided.reduce((s: number, v: number) => s + v, 0))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <Button onClick={resetEncaissement} variant="outline" className="w-full">
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Réinitialiser
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Historique
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {history.length === 0 ? (
+              <div className="text-sm text-muted-foreground">Aucune opération pour le moment.</div>
+            ) : (
+              <ul className="space-y-2">
+                {history.map((h: HistoryItem) => (
+                  <li
+                    key={h.id}
+                    className="flex items-center justify-between px-3 py-2 rounded-md border"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Badge variant={h.type === 'add' ? 'default' : 'destructive'}>
+                        {h.type === 'add' ? '+' : '-'}
+                      </Badge>
+                      <span className="font-medium">{formatEUR(h.amount)}</span>
+                    </div>
+                    <time className="text-xs text-muted-foreground">
+                      {new Date(h.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                    </time>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+    </div>
+  )
 }

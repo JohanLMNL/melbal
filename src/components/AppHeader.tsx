@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Settings, LogOut, Shield, Calculator } from 'lucide-react'
@@ -9,6 +10,7 @@ import { toast } from 'sonner'
 import { supabase, type Profile, isBossOrAdmin } from '@/lib/supabase'
 
 export function AppHeader() {
+  const router = useRouter()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [open, setOpen] = useState(false)
 
@@ -33,6 +35,8 @@ export function AppHeader() {
     const { error } = await supabase.auth.signOut()
     if (error) {
       toast.error('Erreur de déconnexion', { description: error.message })
+    } else {
+      router.push('/auth/login')
     }
   }
 

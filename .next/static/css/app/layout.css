@@ -773,9 +773,6 @@ video {
 .mr-2 {
   margin-right: 0.5rem;
 }
-.mt-0\.5 {
-  margin-top: 0.125rem;
-}
 .mt-1 {
   margin-top: 0.25rem;
 }
@@ -1446,6 +1443,10 @@ video {
   font-size: 0.75rem;
   line-height: 1rem;
 }
+.text-4xl {
+  font-size: 2.25rem;
+  line-height: 2.5rem;
+}
 .font-bold {
   font-weight: 700;
 }
@@ -1457,6 +1458,9 @@ video {
 }
 .font-semibold {
   font-weight: 600;
+}
+.font-normal {
+  font-weight: 400;
 }
 .uppercase {
   text-transform: uppercase;
@@ -1564,11 +1568,11 @@ video {
 .opacity-50 {
   opacity: 0.5;
 }
-.opacity-70 {
-  opacity: 0.7;
-}
 .opacity-60 {
   opacity: 0.6;
+}
+.opacity-70 {
+  opacity: 0.7;
 }
 .shadow-lg {
   --tw-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);

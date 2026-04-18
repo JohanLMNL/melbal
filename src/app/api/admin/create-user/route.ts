@@ -16,13 +16,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Créer l'email technique basé sur le username pour correspondre au système de connexion
-    const technicalEmail = `${username}21@gmail.com`
+    // Nettoyer le username pour créer un email valide (enlever espaces, caractères spéciaux)
+    const cleanUsername = username.toLowerCase().replace(/[^a-z0-9]/g, '')
+    const technicalEmail = `${cleanUsername}21@gmail.com`
     
     console.log('Tentative de création utilisateur:', { technicalEmail, username, role })
     
     // Vérification configuration ENV côté serveur
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://datjoleofcjcpejnhddd.supabase.co'
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    
+    console.log('ENV check:', { 
+      hasUrl: !!supabaseUrl, 
+      hasServiceKey: !!supabaseServiceKey,
+      url: supabaseUrl?.slice(0, 30) + '...'
+    })
+    
     if (!supabaseServiceKey) {
       return NextResponse.json(
         { error: 'Configuration manquante: SUPABASE_SERVICE_ROLE_KEY' },
@@ -44,19 +53,18 @@ export async function POST(request: NextRequest) {
       }
     })
     
-    // Utiliser signUp normal puis confirmer l'email automatiquement
-    const { data: authData, error: authError } = await supabaseAdmin.auth.signUp({
+    // Utiliser l'API admin createUser qui permet de créer sans validation d'email
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: technicalEmail,
       password,
-      options: {
-        data: {
-          username,
-          role
-        }
+      email_confirm: true,
+      user_metadata: {
+        username,
+        role
       }
     })
     
-    console.log('Résultat signUp:', { authData, authError })
+    console.log('Résultat createUser:', { authData, authError })
     
     if (authError) {
       console.error('Erreur lors de la création:', authError)
@@ -64,18 +72,6 @@ export async function POST(request: NextRequest) {
         { error: `Erreur de création: ${authError.message}` },
         { status: 400 }
       )
-    }
-
-    // Confirmer automatiquement l'email après création
-    if (authData.user) {
-      const { error: confirmError } = await supabaseAdmin.auth.admin.updateUserById(
-        authData.user.id,
-        { email_confirm: true }
-      )
-      
-      if (confirmError) {
-        console.warn('Erreur confirmation email:', confirmError.message)
-      }
     }
 
     if (authData.user) {
