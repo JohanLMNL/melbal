@@ -1,6 +1,4 @@
 {
-  "/api/admin/create-user/route": "app/api/admin/create-user/route.js",
   "/api/admin/tables/list/route": "app/api/admin/tables/list/route.js",
-  "/reservations/page": "app/reservations/page.js",
-  "/admin/page": "app/admin/page.js"
+  "/reservations/page": "app/reservations/page.js"
 }
