@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { supabase, type Reservation, type Profile, type Table, type ConsumptionType, type ReservationConsumption, canManageReservations } from '@/lib/supabase'
 import { formatEuro } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -242,7 +242,7 @@ function TablePlanPicker({
 }
 
 export default function ReservationsPage() {
-  const [activeTab, setActiveTab] = useState<'reservations' | 'guestlist'>('reservations')
+  const [activeTab, setActiveTab] = useState<'reservations' | 'guestlist' | 'plan'>('reservations')
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [profile, setProfile] = useState<Profile | null>(null)
   const [venueFilter, setVenueFilter] = useState<'all' | 'Melkior' | "Bal'tazar">('all')
@@ -524,10 +524,23 @@ export default function ReservationsPage() {
           <ListChecks className="h-4 w-4" />
           Guestlist
         </button>
+        <button
+          onClick={() => setActiveTab('plan')}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'plan' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <MapPin className="h-4 w-4" />
+          Plans
+        </button>
       </div>
 
       {activeTab === 'guestlist' && (
         <GuestlistTab selectedDate={selectedDate} onDateChange={setSelectedDate} />
+      )}
+
+      {activeTab === 'plan' && (
+        <PlanTab selectedDate={selectedDate} />
       )}
 
       {activeTab === 'reservations' && (
@@ -932,6 +945,335 @@ export default function ReservationsPage() {
       </Card>
       </>
       )}
+    </div>
+  )
+}
+
+type Venue = 'Melkior' | "Bal'tazar"
+
+interface TableWithPosition {
+  id: number
+  table_number: number
+  kind: 'assises' | 'haute' | 'vip'
+  pos_x: number | null
+  pos_y: number | null
+  occupied: boolean
+  occupied_by?: string | null
+  occupiedByName?: string
+}
+
+function PlanTab({ selectedDate }: { selectedDate: string }) {
+  const [venue, setVenue] = useState<Venue>('Melkior')
+  const [tables, setTables] = useState<TableWithPosition[]>([])
+  const [reservedTables, setReservedTables] = useState<Record<number, { status: 'en_attente' | 'arrive' | 'servi', name: string, guests: number, servedByName?: string }>>({})
+  const [loading, setLoading] = useState(true)
+  const [activeTooltip, setActiveTooltip] = useState<number | null>(null)
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => { loadData() }, [venue, selectedDate])
+
+  const loadData = async () => {
+    setLoading(true)
+    try {
+      // Charger les tables avec positions et occupied_by
+      const { data: tablesData, error: tablesError } = await supabase
+        .from('tables')
+        .select('id, table_number, kind, pos_x, pos_y, occupied, occupied_by')
+        .eq('venue', venue)
+      
+      if (tablesError) throw tablesError
+      
+      // Charger les noms des utilisateurs qui ont mis des tables en occupé
+      const occupiedByIds = Array.from(new Set(tablesData?.filter(t => t.occupied_by).map(t => t.occupied_by) || []))
+      const { data: occupiedByUsers } = await supabase
+        .from('profiles')
+        .select('id, username')
+        .in('id', occupiedByIds.length > 0 ? occupiedByIds : ['00000000-0000-0000-0000-000000000000'])
+      
+      const occupiedByMap: Record<string, string> = {}
+      occupiedByUsers?.forEach(u => { occupiedByMap[u.id] = u.username || 'Inconnu' })
+      
+      // Ajouter les noms aux tables
+      const tablesWithNames = tablesData?.map(t => ({
+        ...t,
+        occupiedByName: t.occupied_by ? occupiedByMap[t.occupied_by] : undefined
+      })) || []
+      
+      setTables(tablesWithNames)
+
+      // Charger les réservations pour cette date avec leurs détails
+      const { data: reservationsData, error: resError } = await supabase
+        .from('reservations')
+        .select('id, name, guests, status, served_by, reservation_tables(table_number)')
+        .eq('venue', venue)
+        .eq('date', selectedDate)
+        .in('status', ['en_attente', 'arrive', 'servi'])
+      
+      if (resError) throw resError
+      
+      // Charger les noms des serveurs pour les réservations servies
+      const serverIds = Array.from(new Set(reservationsData?.filter(r => r.served_by).map(r => r.served_by) || []))
+      const { data: serversData } = await supabase
+        .from('profiles')
+        .select('id, username')
+        .in('id', serverIds.length > 0 ? serverIds : ['00000000-0000-0000-0000-000000000000'])
+      
+      const serverMap: Record<string, string> = {}
+      serversData?.forEach(s => { serverMap[s.id] = s.username || 'Inconnu' })
+      
+      // Mapper les tables à leurs détails (priorité: servi > arrive > en_attente)
+      const reserved: Record<number, { status: 'en_attente' | 'arrive' | 'servi', name: string, guests: number, servedByName?: string }> = {}
+      reservationsData?.forEach((r: any) => {
+        const status = r.status as 'en_attente' | 'arrive' | 'servi'
+        const existing = reserved[r.reservation_tables?.[0]?.table_number]
+        // Priorité: servi > arrive > en_attente
+        const shouldUpdate = !existing || status === 'servi' || (status === 'arrive' && existing.status === 'en_attente')
+        
+        r.reservation_tables?.forEach((rt: any) => {
+          const tableNum = rt.table_number as number
+          if (!reserved[tableNum] || shouldUpdate) {
+            reserved[tableNum] = {
+              status,
+              name: r.name || 'Sans nom',
+              guests: r.guests || 0,
+              servedByName: r.served_by ? serverMap[r.served_by] : undefined
+            }
+          }
+        })
+      })
+      setReservedTables(reserved)
+    } catch (e: any) {
+      toast.error('Erreur de chargement', { description: e.message })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const planSrc = venue === "Bal'tazar" ? '/plans/planTableBalta.png' : '/plans/planTableMelkior.png'
+
+  const toggleOccupied = async (tableId: number, current: boolean) => {
+    try {
+      // Récupérer l'utilisateur courant pour occupied_by
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      const updateData = !current 
+        ? { occupied: true, occupied_by: user?.id || null }
+        : { occupied: false, occupied_by: null }
+      
+      const { error } = await supabase
+        .from('tables')
+        .update(updateData)
+        .eq('id', tableId)
+      if (error) throw error
+      
+      // Récupérer le vrai username depuis profiles
+      let userName = 'Inconnu'
+      if (!current && user?.id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', user.id)
+          .single()
+        userName = profile?.username || 'Inconnu'
+      }
+      
+      setTables(prev => prev.map(t => t.id === tableId ? { 
+        ...t, 
+        occupied: !current,
+        occupied_by: updateData.occupied_by,
+        occupiedByName: !current ? userName : undefined
+      } : t))
+      toast.success(`Table ${current ? 'libérée' : 'marquée occupée'}`)
+    } catch (e: any) {
+      toast.error('Erreur', { description: e.message })
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Sélecteur de salle */}
+      <Card>
+        <CardContent className="pt-4">
+          <div className="flex items-center gap-4">
+            <label className="text-sm font-medium">Salle</label>
+            <div className="flex gap-2">
+              <Button
+                variant={venue === 'Melkior' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setVenue('Melkior')}
+              >
+                Melkior
+              </Button>
+              <Button
+                variant={venue === "Bal'tazar" ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setVenue("Bal'tazar")}
+              >
+                Bal&apos;tazar
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Plan avec tables */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Plan – {venue}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="text-center py-8">Chargement...</div>
+          ) : (
+            <>
+              {/* Info mobile scroll */}
+              <div className="md:hidden mb-2 text-xs text-muted-foreground flex items-center gap-1">
+                <span>→</span> Glissez pour voir le plan entier
+              </div>
+              {/* Conteneur scrollable sur mobile */}
+              <div className="relative w-full overflow-x-auto md:overflow-visible border rounded-md bg-muted">
+                <div className="relative min-w-[600px] md:min-w-0 md:w-full">
+                  <Image 
+                    src={planSrc} 
+                    alt={`Plan ${venue}`} 
+                    width={1200} 
+                    height={800} 
+                    className="w-full h-auto" 
+                  />
+                  {/* Overlay des tables */}
+                  <div className="absolute inset-0">
+                    {tables.map((t) => {
+                      const hasPos = typeof t.pos_x === 'number' && typeof t.pos_y === 'number'
+                      if (!hasPos) return null
+                      
+                      const reservationInfo = reservedTables[t.table_number]
+                      const isReserved = !!reservationInfo
+                      const isOccupied = t.occupied
+                      const left = `${t.pos_x}%`
+                      const top = `${t.pos_y}%`
+                      const status = reservationInfo?.status
+                      
+                      // Styles selon la priorité : Réservée (3 statuts) > Occupée > Libre
+                      const getStyle = () => {
+                        // Réservée : 3 styles selon le statut
+                        if (status === 'en_attente') {
+                          // Blanc avec hachures rouges foncées pour meilleur contraste
+                          return 'bg-white text-red-700 border-red-600 cursor-default bg-[repeating-linear-gradient(45deg,transparent,transparent_3px,#dc2626_3px,#dc2626_6px)]'
+                        }
+                        if (status === 'arrive') {
+                          // Rouge plein
+                          return 'bg-red-500 text-white border-red-600 cursor-default'
+                        }
+                        if (status === 'servi') {
+                          // Rouge avec contour vert
+                          return 'bg-red-500 text-white border-4 border-green-500 cursor-default'
+                        }
+                        // Occupée manuellement
+                        if (isOccupied) {
+                          return 'bg-orange-500 text-white border-orange-600 cursor-pointer hover:bg-orange-600'
+                        }
+                        // Libre
+                        return 'bg-white text-black border-black cursor-pointer hover:bg-gray-100 shadow-sm'
+                      }
+                      
+                      const getTooltipText = () => {
+                        if (reservationInfo) {
+                          const baseInfo = `${reservationInfo.name}\n${reservationInfo.guests} pers.`
+                          if (status === 'servi' && reservationInfo.servedByName) {
+                            return `${baseInfo}\nServi par ${reservationInfo.servedByName}`
+                          }
+                          return `${baseInfo}\n${status === 'en_attente' ? 'En attente' : 'Arrivé'}`
+                        }
+                        if (isOccupied) {
+                          const byWho = t.occupiedByName ? ` par ${t.occupiedByName}` : ''
+                          return `Table ${t.table_number}\nOccupée${byWho}`
+                        }
+                        return `Table ${t.table_number}\nLibre`
+                      }
+                      
+                      const showTooltip = () => setActiveTooltip(t.table_number)
+                      const hideTooltip = () => setActiveTooltip(null)
+                      
+                      const handleTouchStart = () => {
+                        longPressTimer.current = setTimeout(() => {
+                          showTooltip()
+                        }, 500)
+                      }
+                      
+                      const handleTouchEnd = () => {
+                        if (longPressTimer.current) {
+                          clearTimeout(longPressTimer.current)
+                          longPressTimer.current = null
+                        }
+                        // Masquer le tooltip après 2 secondes
+                        setTimeout(() => hideTooltip(), 2000)
+                      }
+                      
+                      const isTooltipVisible = activeTooltip === t.table_number
+                      
+                      return (
+                        <div
+                          key={t.id}
+                          className="absolute group"
+                          style={{ left, top, transform: 'translate(-50%, -50%)', zIndex: isTooltipVisible ? 999 : 50 }}
+                        >
+                          {/* Tooltip - visible au survol (desktop) ou au long press (mobile) */}
+                          <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-[1000] transition-opacity duration-200 ${isTooltipVisible ? 'opacity-100 visible' : 'opacity-0 invisible group-hover:opacity-100 group-hover:visible'}`}>
+                            <div className="bg-black text-white text-xs px-2 py-1.5 rounded shadow-lg whitespace-pre text-center min-w-[80px]">
+                              {getTooltipText()}
+                              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black"></div>
+                            </div>
+                          </div>
+                          {/* Bouton table */}
+                          <button
+                            type="button"
+                            className={`rounded-full border-2 text-sm md:text-xs font-bold flex items-center justify-center transition-colors ${getStyle()} md:w-8 md:h-8 w-10 h-10`}
+                            onClick={() => !isReserved && toggleOccupied(t.id, isOccupied)}
+                            onMouseEnter={showTooltip}
+                            onMouseLeave={hideTooltip}
+                            onTouchStart={handleTouchStart}
+                            onTouchEnd={handleTouchEnd}
+                            disabled={isReserved}
+                          >
+                            {t.table_number}
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+          
+          {/* Légende */}
+          <div className="mt-4 flex flex-wrap gap-3 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="w-4 h-4 rounded-full bg-white border-2 border-black"></span>
+              <span>Libre</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-4 h-4 rounded-full bg-orange-500 border-2 border-orange-600"></span>
+              <span>Occupée</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-4 h-4 rounded-full bg-white border-2 border-red-600 bg-[repeating-linear-gradient(45deg,transparent,transparent_2px,#dc2626_2px,#dc2626_4px)]"></span>
+              <span>En attente</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-4 h-4 rounded-full bg-red-500 border-2 border-red-600"></span>
+              <span>Arrivé</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-4 h-4 rounded-full bg-red-500 border-4 border-green-500"></span>
+              <span>Servi</span>
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Cliquez sur une table libre pour la marquer comme occupée, ou sur une table occupée pour la libérer.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   )
 }
