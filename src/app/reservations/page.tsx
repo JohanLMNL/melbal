@@ -505,43 +505,46 @@ export default function ReservationsPage() {
       </div>
 
       {/* Onglets */}
-      <div className="flex gap-2 border-b">
-        <button
-          onClick={() => setActiveTab('reservations')}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'reservations' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <Calendar className="h-4 w-4" />
-          Réservations
-        </button>
-        <button
-          onClick={() => setActiveTab('guestlist')}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'guestlist' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <ListChecks className="h-4 w-4" />
-          Guestlist
-        </button>
-        <button
-          onClick={() => setActiveTab('plan')}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'plan' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <MapPin className="h-4 w-4" />
-          Plan
-        </button>
-        <button
-          onClick={() => setActiveTab('shotgun')}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'shotgun' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <Ticket className="h-4 w-4" />
-          Shotgun
-        </button>
+      <div className="overflow-x-auto -mx-6 px-6 scrollbar-hide">
+        <div className="flex gap-1 border-b min-w-max">
+          <button
+            onClick={() => setActiveTab('reservations')}
+            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'reservations' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Calendar className="h-4 w-4" />
+            <span className="hidden sm:inline">Réservations</span>
+            <span className="sm:hidden">Résa</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('guestlist')}
+            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'guestlist' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <ListChecks className="h-4 w-4" />
+            Guestlist
+          </button>
+          <button
+            onClick={() => setActiveTab('plan')}
+            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'plan' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <MapPin className="h-4 w-4" />
+            Plan
+          </button>
+          <button
+            onClick={() => setActiveTab('shotgun')}
+            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'shotgun' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Ticket className="h-4 w-4" />
+            Shotgun
+          </button>
+        </div>
       </div>
 
       {activeTab === 'guestlist' && (
@@ -553,7 +556,7 @@ export default function ReservationsPage() {
       )}
 
       {activeTab === 'shotgun' && (
-        <ShotgunTab selectedDate={selectedDate} />
+        <ShotgunTab selectedDate={selectedDate} onDateChange={setSelectedDate} />
       )}
 
       {activeTab === 'reservations' && (
@@ -2055,7 +2058,7 @@ interface ShotgunData {
   event_name: string | null
 }
 
-function ShotgunTab({ selectedDate }: { selectedDate: string }) {
+function ShotgunTab({ selectedDate, onDateChange }: { selectedDate: string; onDateChange: (d: string) => void }) {
   const [data, setData] = useState<ShotgunData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -2096,6 +2099,17 @@ function ShotgunTab({ selectedDate }: { selectedDate: string }) {
 
   return (
     <div className="space-y-4">
+      {/* Sélecteur de date */}
+      <div className="relative">
+        <Input
+          type="date"
+          value={selectedDate}
+          onChange={(e) => onDateChange(e.target.value)}
+          className="w-full pr-10 appearance-none text-base min-h-[44px]"
+        />
+        <Calendar className="absolute right-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+      </div>
+
       <Card>
         <CardContent className="pt-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

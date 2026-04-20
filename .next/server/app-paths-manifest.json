@@ -1,4 +1,5 @@
 {
   "/api/admin/tables/list/route": "app/api/admin/tables/list/route.js",
+  "/auth/login/page": "app/auth/login/page.js",
   "/reservations/page": "app/reservations/page.js"
 }
