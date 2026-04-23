@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
-import { Settings, LogOut, Shield, Calculator } from 'lucide-react'
+import { Settings, LogOut, Shield, Calculator, Monitor, Calendar } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase, type Profile, isBossOrAdmin } from '@/lib/supabase'
 
@@ -60,6 +60,12 @@ export function AppHeader() {
                       <Shield className="h-4 w-4" /> Administration
                     </Link>
                   )}
+                  <Link href="/calendrier" onClick={() => setOpen(false)} className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm hover:bg-accent hover:text-accent-foreground">
+                    <Calendar className="h-4 w-4" /> Calendrier
+                  </Link>
+                  <Link href="/office" onClick={() => setOpen(false)} className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm hover:bg-accent hover:text-accent-foreground">
+                    <Monitor className="h-4 w-4" /> Office
+                  </Link>
                   <Link href="/encaissement" onClick={() => setOpen(false)} className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm hover:bg-accent hover:text-accent-foreground">
                     <Calculator className="h-4 w-4" /> Calculette
                   </Link>
