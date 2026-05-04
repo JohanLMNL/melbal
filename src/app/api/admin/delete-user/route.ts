@@ -1,27 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-// Client admin avec service_role key pour supprimer des utilisateurs
-const supabaseAdmin = createClient(
-  'https://datjoleofcjcpejnhddd.supabase.co',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || '',
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-)
+import { requireAdmin, getSupabaseAdmin } from '@/lib/api-auth'
 
 export async function DELETE(request: NextRequest) {
   try {
+    const auth = await requireAdmin(request)
+    if (auth instanceof NextResponse) return auth
+
     const { userId } = await request.json()
 
     if (!userId) {
       return NextResponse.json({ error: 'ID utilisateur requis' }, { status: 400 })
     }
 
-    // Supprimer l'utilisateur de l'authentification Supabase
+    const supabaseAdmin = getSupabaseAdmin()
     const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId)
     
     if (authError) {

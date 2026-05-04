@@ -1,28 +1,25 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase, type Profile, isBossOrAdmin } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
+import { isBossOrAdmin } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus, Trash2, Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Calendar, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth, isToday, isBefore, startOfDay } from 'date-fns'
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isToday, isBefore, startOfDay } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import Image from 'next/image'
 
 type Venue = 'Melkior' | "Bal'tazar" | 'Les deux'
 
 interface Event {
-  id: number
+  id: string
   name: string
   date: string
   venue: Venue
-  created_by: string | null
-  created_at: string
+  description: string | null
 }
 
 function renderVenueLogo(venue: string, size: number = 14) {
@@ -39,80 +36,27 @@ function renderVenueLogo(venue: string, size: number = 14) {
 }
 
 export default function CalendrierPage() {
+  const { profile } = useAuth()
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
   const [currentMonth, setCurrentMonth] = useState(new Date())
-  const [showAdd, setShowAdd] = useState(false)
-  const [profile, setProfile] = useState<Profile | null>(null)
 
-  // Form state
-  const [newName, setNewName] = useState('')
-  const [newDate, setNewDate] = useState('')
-  const [newVenue, setNewVenue] = useState<Venue>('Melkior')
-
-  useEffect(() => { loadProfile() }, [])
   useEffect(() => { loadEvents() }, [currentMonth])
-
-  const loadProfile = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-      if (data) setProfile(data)
-    }
-  }
 
   const loadEvents = async () => {
     setLoading(true)
-    const start = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
-    const end = format(endOfMonth(currentMonth), 'yyyy-MM-dd')
+    const timeMin = startOfMonth(currentMonth).toISOString()
+    const timeMax = endOfMonth(currentMonth).toISOString()
 
-    const { data, error } = await supabase
-      .from('events')
-      .select('*')
-      .gte('date', start)
-      .lte('date', end)
-      .order('date', { ascending: true })
-
-    if (error) {
-      toast.error('Erreur', { description: error.message })
-    } else {
-      setEvents(data || [])
+    try {
+      const res = await fetch(`/api/calendar/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Erreur API')
+      setEvents(json.events || [])
+    } catch (error: any) {
+      toast.error('Erreur chargement', { description: error.message })
     }
     setLoading(false)
-  }
-
-  const addEvent = async () => {
-    if (!newName.trim() || !newDate) {
-      toast.error('Remplis le nom et la date')
-      return
-    }
-    const { data: { user } } = await supabase.auth.getUser()
-    const { error } = await supabase.from('events').insert({
-      name: newName.trim(),
-      date: newDate,
-      venue: newVenue,
-      created_by: user?.id || null,
-    })
-    if (error) {
-      toast.error('Erreur', { description: error.message })
-    } else {
-      toast.success('Soirée ajoutée')
-      setShowAdd(false)
-      setNewName('')
-      setNewDate('')
-      setNewVenue('Melkior')
-      loadEvents()
-    }
-  }
-
-  const deleteEvent = async (id: number) => {
-    const { error } = await supabase.from('events').delete().eq('id', id)
-    if (error) {
-      toast.error('Erreur', { description: error.message })
-    } else {
-      toast.success('Soirée supprimée')
-      loadEvents()
-    }
   }
 
   // Calendar grid
@@ -137,12 +81,10 @@ export default function CalendrierPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Calendrier des soirées</h1>
-        {canManage && (
-          <Button size="sm" onClick={() => setShowAdd(true)}>
-            <Plus className="h-4 w-4 mr-1" />
-            Ajouter
-          </Button>
-        )}
+        <Button variant="outline" size="sm" onClick={loadEvents} disabled={loading}>
+          <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
+          Actualiser
+        </Button>
       </div>
 
       {/* Navigation mois */}
@@ -198,14 +140,6 @@ export default function CalendrierPage() {
                       >
                         {renderVenueLogo(e.venue, 12)}
                         <span className="truncate font-medium flex-1">{e.name}</span>
-                        {canManage && (
-                          <button
-                            onClick={() => deleteEvent(e.id)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                          >
-                            <Trash2 className="h-3 w-3 text-destructive" />
-                          </button>
-                        )}
                       </div>
                     ))}
                   </div>
@@ -244,11 +178,6 @@ export default function CalendrierPage() {
                       {renderVenueLogo(e.venue, 18)}
                       <span className="font-medium flex-1 truncate">{e.name}</span>
                       <Badge variant="outline" className="text-[10px] shrink-0">{e.venue}</Badge>
-                      {canManage && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => deleteEvent(e.id)}>
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -294,11 +223,6 @@ export default function CalendrierPage() {
                       </div>
                     </div>
                     <Badge variant="outline">{e.venue}</Badge>
-                    {canManage && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => deleteEvent(e.id)}>
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
-                    )}
                   </div>
                 ))}
               {events.filter((e) => !isBefore(new Date(e.date), startOfDay(new Date()))).length === 0 && (
@@ -309,41 +233,7 @@ export default function CalendrierPage() {
         </CardContent>
       </Card>
 
-      {/* Dialog ajout */}
-      <Dialog open={showAdd} onOpenChange={setShowAdd}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Nouvelle soirée</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-1 block">Nom</label>
-              <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nom de la soirée" />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Date</label>
-              <Input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Salle</label>
-              <Select value={newVenue} onValueChange={(v: any) => setNewVenue(v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Melkior">Melkior</SelectItem>
-                  <SelectItem value="Bal'tazar">Bal&apos;tazar</SelectItem>
-                  <SelectItem value="Les deux">Les deux</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button className="w-full" onClick={addEvent}>
-              <Plus className="h-4 w-4 mr-2" />
-              Ajouter la soirée
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Les événements sont gérés directement dans Google Calendar */}
     </div>
   )
 }

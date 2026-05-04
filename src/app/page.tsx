@@ -1,52 +1,32 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function HomePage() {
   const router = useRouter()
-  const [loading, setLoading] = useState(true)
+  const { user, loading } = useAuth()
 
   useEffect(() => {
-    checkAuth()
-  }, [])
-
-  const checkAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession()
-    
-    if (session) {
-      // Récupérer le profil utilisateur pour vérifier le rôle via RPC
-      const { data: profiles, error } = await supabase
-        .rpc('get_user_profiles')
-      
-      const profile = profiles?.find((p: any) => p.id === session.user.id)
-      
-      console.log('Profile data:', profile, 'Error:', error)
-      
-      // Rediriger tous les utilisateurs vers les réservations
-      console.log('Redirecting to reservations page')
+    if (loading) return
+    if (user) {
       router.push('/reservations')
     } else {
       router.push('/auth/login')
     }
-    setLoading(false)
-  }
+  }, [user, loading, router])
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="flex items-center justify-center mb-3">
-            <Image src="/logos/MelBal_Logo.png" alt="MelBal" width={56} height={56} priority />
-          </div>
-          <h1 className="text-2xl font-bold mb-2">MelbalApp</h1>
-          <p className="text-muted-foreground">Chargement...</p>
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <div className="flex items-center justify-center mb-3">
+          <Image src="/logos/MelBal_Logo.png" alt="MelBal" width={56} height={56} priority />
         </div>
+        <h1 className="text-2xl font-bold mb-2">MelbalApp</h1>
+        <p className="text-muted-foreground">Chargement...</p>
       </div>
-    )
-  }
-
-  return null
+    </div>
+  )
 }

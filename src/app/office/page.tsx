@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { supabase, type Reservation, type Profile, canManageReservations } from '@/lib/supabase'
+import { supabase, type Reservation, canManageReservations } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
+import { useTableKinds } from '@/lib/hooks/useTableKinds'
 import { formatEuro } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -49,12 +51,12 @@ interface TableWithPosition {
 export default function OfficePage() {
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0])
   const [venue, setVenue] = useState<Venue>('Melkior')
-  const [profile, setProfile] = useState<Profile | null>(null)
+  const { profile } = useAuth()
+  const tableKinds = useTableKinds()
 
   // Reservations state
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [loading, setLoading] = useState(true)
-  const [tableKinds, setTableKinds] = useState<Record<string, 'assises' | 'haute' | 'vip'>>({})
 
   // Plan state
   const [tables, setTables] = useState<TableWithPosition[]>([])
@@ -63,29 +65,8 @@ export default function OfficePage() {
   const [activeTooltip, setActiveTooltip] = useState<number | null>(null)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => { loadProfile() }, [])
-  useEffect(() => { loadTableKinds() }, [])
   useEffect(() => { loadReservations() }, [selectedDate, venue])
   useEffect(() => { loadPlanData() }, [selectedDate, venue])
-
-  const loadProfile = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-      if (data) setProfile(data)
-    }
-  }
-
-  const loadTableKinds = async () => {
-    try {
-      const res = await fetch('/api/admin/tables/list', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
-      const result = await res.json()
-      if (!res.ok) throw new Error(result.error || 'Erreur API')
-      const map: Record<string, 'assises' | 'haute' | 'vip'> = {}
-      ;(result.tables || []).forEach((t: any) => { map[`${t.venue}:${t.table_number}`] = t.kind })
-      setTableKinds(map)
-    } catch (e) { console.error('Erreur chargement types de tables:', e) }
-  }
 
   // --- Reservations ---
   const loadReservations = async () => {
@@ -114,9 +95,21 @@ export default function OfficePage() {
     const update: Record<string, any> = { status: next }
     if (next === 'servi' && profile?.id) update.served_by = profile.id
     else if (next !== 'servi') update.served_by = null
+    // Optimistic update
+    setReservations(prev => prev.map(r => r.id === reservation.id ? {
+      ...r, status: next,
+      served_by: update.served_by ?? r.served_by,
+      served_by_profile: next === 'servi' && profile ? { username: profile.username, role: profile.role } : null
+    } as any : r))
+
     const { error } = await supabase.from('reservations').update(update).eq('id', reservation.id)
-    if (error) toast.error('Erreur', { description: error.message })
-    else { toast.success('Statut mis à jour'); loadReservations(); loadPlanData() }
+    if (error) {
+      toast.error('Erreur', { description: error.message })
+      loadReservations()
+    } else {
+      toast.success('Statut mis à jour')
+      loadPlanData()
+    }
   }
 
   const statusLabel = (s: string) => s === 'arrive' ? 'Arrivé' : s === 'servi' ? 'Servi' : 'En attente'
@@ -136,35 +129,38 @@ export default function OfficePage() {
   const loadPlanData = async () => {
     setPlanLoading(true)
     try {
-      const { data: tablesData, error: tablesError } = await supabase.from('tables').select('id, table_number, kind, pos_x, pos_y, occupied, occupied_by').eq('venue', venue)
-      if (tablesError) throw tablesError
+      // Paralléliser les 2 requêtes principales
+      const [tablesRes, reservationsRes] = await Promise.all([
+        supabase.from('tables').select('id, table_number, kind, pos_x, pos_y, occupied, occupied_by').eq('venue', venue),
+        supabase.from('reservations').select('id, name, guests, status, served_by, reservation_tables(table_number)').eq('venue', venue).eq('date', selectedDate).in('status', ['en_attente', 'arrive', 'servi'])
+      ])
+      if (tablesRes.error) throw tablesRes.error
+      if (reservationsRes.error) throw reservationsRes.error
 
-      const occupiedByIds = Array.from(new Set(tablesData?.filter(t => t.occupied_by).map(t => t.occupied_by) || []))
-      const { data: occupiedByUsers } = await supabase.from('profiles').select('id, username').in('id', occupiedByIds.length > 0 ? occupiedByIds : ['00000000-0000-0000-0000-000000000000'])
-      const occupiedByMap: Record<string, string> = {}
-      occupiedByUsers?.forEach(u => { occupiedByMap[u.id] = u.username || 'Inconnu' })
+      const tablesData = tablesRes.data || []
+      const reservationsData = reservationsRes.data || []
 
-      setTables(tablesData?.map(t => ({ ...t, occupiedByName: t.occupied_by ? occupiedByMap[t.occupied_by] : undefined })) || [])
+      // Collecter tous les user IDs en une passe, une seule requête profils
+      const userIds = new Set<string>()
+      tablesData.forEach(t => { if (t.occupied_by) userIds.add(t.occupied_by) })
+      reservationsData.forEach((r: any) => { if (r.served_by) userIds.add(r.served_by) })
 
-      const { data: reservationsData, error: resError } = await supabase
-        .from('reservations')
-        .select('id, name, guests, status, served_by, reservation_tables(table_number)')
-        .eq('venue', venue).eq('date', selectedDate).in('status', ['en_attente', 'arrive', 'servi'])
-      if (resError) throw resError
+      let profileMap: Record<string, string> = {}
+      if (userIds.size > 0) {
+        const { data: profiles } = await supabase.from('profiles').select('id, username').in('id', Array.from(userIds))
+        profiles?.forEach(p => { profileMap[p.id] = p.username || 'Inconnu' })
+      }
 
-      const serverIds = Array.from(new Set(reservationsData?.filter(r => r.served_by).map(r => r.served_by) || []))
-      const { data: serversData } = await supabase.from('profiles').select('id, username').in('id', serverIds.length > 0 ? serverIds : ['00000000-0000-0000-0000-000000000000'])
-      const serverMap: Record<string, string> = {}
-      serversData?.forEach(s => { serverMap[s.id] = s.username || 'Inconnu' })
+      setTables(tablesData.map(t => ({ ...t, occupiedByName: t.occupied_by ? profileMap[t.occupied_by] : undefined })))
 
       const reserved: Record<number, { status: 'en_attente' | 'arrive' | 'servi', name: string, guests: number, servedByName?: string }> = {}
-      reservationsData?.forEach((r: any) => {
+      reservationsData.forEach((r: any) => {
         const status = r.status as 'en_attente' | 'arrive' | 'servi'
         r.reservation_tables?.forEach((rt: any) => {
           const tn = rt.table_number as number
           const existing = reserved[tn]
           if (!existing || status === 'servi' || (status === 'arrive' && existing.status === 'en_attente')) {
-            reserved[tn] = { status, name: r.name || 'Sans nom', guests: r.guests || 0, servedByName: r.served_by ? serverMap[r.served_by] : undefined }
+            reserved[tn] = { status, name: r.name || 'Sans nom', guests: r.guests || 0, servedByName: r.served_by ? profileMap[r.served_by] : undefined }
           }
         })
       })
@@ -176,17 +172,17 @@ export default function OfficePage() {
   const toggleOccupied = async (tableId: number, current: boolean) => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
+      // Optimistic update
+      setTables(prev => prev.map(t => t.id === tableId ? { ...t, occupied: !current, occupied_by: !current ? user?.id : null, occupiedByName: !current ? 'Vous' : undefined } : t))
+
       const updateData = !current ? { occupied: true, occupied_by: user?.id || null } : { occupied: false, occupied_by: null }
       const { error } = await supabase.from('tables').update(updateData).eq('id', tableId)
       if (error) throw error
-      let userName = 'Inconnu'
-      if (!current && user?.id) {
-        const { data: p } = await supabase.from('profiles').select('username').eq('id', user.id).single()
-        userName = p?.username || 'Inconnu'
-      }
-      setTables(prev => prev.map(t => t.id === tableId ? { ...t, occupied: !current, occupied_by: updateData.occupied_by, occupiedByName: !current ? userName : undefined } : t))
       toast.success(`Table ${current ? 'libérée' : 'marquée occupée'}`)
-    } catch (e: any) { toast.error('Erreur', { description: e.message }) }
+    } catch (e: any) {
+      loadPlanData() // rollback
+      toast.error('Erreur', { description: e.message })
+    }
   }
 
   const planSrc = venue === "Bal'tazar" ? '/plans/planTableBalta.png' : '/plans/planTableMelkior.png'

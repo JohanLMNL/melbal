@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase, type Profile, isBossOrAdmin } from '@/lib/supabase'
+import { apiFetch } from '@/lib/api-fetch'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -57,15 +58,14 @@ export default function AdminUsersPage() {
     setLoading(true)
     console.log('Loading profiles...')
     const { data, error } = await supabase
-      .rpc('get_user_profiles')
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false })
 
-    console.log('Profiles response:', { data, error })
-    
     if (error) {
       console.error('Error loading profiles:', error)
       toast.error('Erreur de chargement', { description: error.message })
     } else {
-      console.log('Setting profiles:', data)
       setProfiles(data || [])
     }
     setLoading(false)
@@ -80,11 +80,8 @@ export default function AdminUsersPage() {
     setCreating(true)
     try {
       // Appeler l'API route pour créer l'utilisateur de manière sécurisée
-      const response = await fetch('/api/admin/create-user', {
+      const response = await apiFetch('/api/admin/create-user', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           password: newUser.password,
           username: newUser.username,
@@ -146,21 +143,9 @@ export default function AdminUsersPage() {
     setDeleting(profileId)
     
     try {
-      // Supprimer d'abord le profil via fonction SQL
-      const { error: profileError } = await supabase
-        .rpc('delete_user_profile', { user_id: profileId })
-
-      if (profileError) {
-        toast.error('Erreur de suppression du profil', { description: profileError.message })
-        return
-      }
-
-      // Supprimer l'utilisateur via l'API admin
-      const response = await fetch('/api/admin/delete-user', {
+      // Supprimer l'utilisateur via l'API admin (le profil sera supprimé en cascade)
+      const response = await apiFetch('/api/admin/delete-user', {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ userId: profileId }),
       })
 

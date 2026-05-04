@@ -1,22 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://datjoleofcjcpejnhddd.supabase.co'
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: { autoRefreshToken: false, persistSession: false }
-})
+import { requireAdmin, getSupabaseAdmin } from '@/lib/api-auth'
 
 export async function DELETE(request: NextRequest) {
   try {
+    const auth = await requireAdmin(request)
+    if (auth instanceof NextResponse) return auth
+
+    const supabaseAdmin = getSupabaseAdmin('app')
     const { id } = await request.json()
     if (!id) {
       return NextResponse.json({ error: 'ID requis' }, { status: 400 })
     }
 
     const { error } = await supabaseAdmin
-      .rpc('delete_table', { p_id: id })
+      .from('tables')
+      .delete()
+      .eq('id', id)
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 })

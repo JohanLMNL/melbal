@@ -1,35 +1,19 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Settings, LogOut, Shield, Calculator, Monitor, Calendar } from 'lucide-react'
 import { toast } from 'sonner'
-import { supabase, type Profile, isBossOrAdmin } from '@/lib/supabase'
+import { supabase, isBossOrAdmin } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 
 export function AppHeader() {
   const router = useRouter()
-  const [profile, setProfile] = useState<Profile | null>(null)
+  const { profile } = useAuth()
   const [open, setOpen] = useState(false)
-
-  useEffect(() => {
-    ;(async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single()
-        setProfile(data)
-      } catch (e) {
-        // noop
-      }
-    })()
-  }, [])
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut()

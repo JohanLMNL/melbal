@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { supabase, type Profile, type Table as TableModel, type Venue, type TableKind, isBossOrAdmin } from "@/lib/supabase"
+import { apiFetch } from "@/lib/api-fetch"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table as TableUI, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -66,9 +67,8 @@ export default function AdminTablesPage() {
   const loadTables = async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/admin/tables/list', {
+      const res = await apiFetch('/api/admin/tables/list', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ venue: venueFilter })
       })
       const result = await res.json()
@@ -203,9 +203,8 @@ export default function AdminTablesPage() {
                               <Button variant="outline" onClick={() => setShowDelete({ open: false, table: null })}>Annuler</Button>
                               <Button variant="destructive" onClick={async () => {
                                 try {
-                                  const res = await fetch('/api/admin/tables/delete', {
+                                  const res = await apiFetch('/api/admin/tables/delete', {
                                     method: 'DELETE',
-                                    headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({ id: t.id })
                                   })
                                   const result = await res.json()
@@ -268,18 +267,16 @@ function CreateOrEditTableForm({ initial, onCancel, onSuccess }: {
     setSaving(true)
     try {
       if (isEdit) {
-        const res = await fetch('/api/admin/tables/update', {
+        const res = await apiFetch('/api/admin/tables/update', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: initial.id!, venue, table_number: num, kind, capacity: cap })
         })
         const result = await res.json()
         if (!res.ok) throw new Error(result.error || 'Erreur API')
         toast.success("Table modifiée")
       } else {
-        const res = await fetch('/api/admin/tables/create', {
+        const res = await apiFetch('/api/admin/tables/create', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ venue, table_number: num, kind, capacity: cap })
         })
         const result = await res.json()
@@ -364,9 +361,8 @@ function BulkGenerator({ venue, onDone }: { venue: Venue, onDone: () => void }) 
         capacity: cap
       }))
 
-      const res = await fetch('/api/admin/tables/bulk', {
+      const res = await apiFetch('/api/admin/tables/bulk', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items })
       })
       const result = await res.json()

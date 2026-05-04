@@ -1,31 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { requireAdmin, getSupabaseAdmin } from '@/lib/api-auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAdmin(request)
+    if (auth instanceof NextResponse) return auth
+
     const { pseudo, role } = await request.json() as { pseudo: string, role: 'admin' | 'server' | 'porter' | 'boss' }
     if (!pseudo || !role) {
       return NextResponse.json({ error: 'Pseudo et rôle requis' }, { status: 400 })
     }
 
     const email = `${pseudo}21@gmail.com`
-
-    // Vérification configuration ENV côté serveur
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://datjoleofcjcpejnhddd.supabase.co'
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (!supabaseServiceKey) {
-      return NextResponse.json({ error: 'Configuration manquante: SUPABASE_SERVICE_ROLE_KEY' }, { status: 500 })
-    }
-    if (!supabaseUrl) {
-      return NextResponse.json({ error: 'Configuration manquante: NEXT_PUBLIC_SUPABASE_URL' }, { status: 500 })
-    }
-
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: { autoRefreshToken: false, persistSession: false }
-    })
+    const supabaseAdmin = getSupabaseAdmin()
 
     // Trouver l'utilisateur par email technique ou metadata.username
     const { data, error } = await supabaseAdmin.auth.admin.listUsers()

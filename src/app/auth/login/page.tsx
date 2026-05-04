@@ -40,7 +40,7 @@ export default function LoginPage() {
 
       if (data.user) {
         toast.success('Connexion réussie')
-        router.push('/reservations')
+        window.location.href = '/reservations'
       }
     } catch (error) {
       console.error('Erreur de connexion:', error)

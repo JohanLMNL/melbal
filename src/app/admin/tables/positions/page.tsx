@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import { apiFetch } from "@/lib/api-fetch"
 import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -28,9 +29,8 @@ export default function PositionsEditorPage() {
 
   const loadTables = async () => {
     try {
-      const res = await fetch('/api/admin/tables/list', {
+      const res = await apiFetch('/api/admin/tables/list', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ venue })
       })
       const j = await res.json()
@@ -73,9 +73,8 @@ export default function PositionsEditorPage() {
         .filter(t => typeof t.pos_x === 'number' && typeof t.pos_y === 'number')
         .map(t => ({ id: t.id, pos_x: t.pos_x!, pos_y: t.pos_y! }))
       if (items.length === 0) { toast.message('Aucune position à enregistrer'); setSaving(false); return }
-      const res = await fetch('/api/admin/tables/positions', {
+      const res = await apiFetch('/api/admin/tables/positions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items })
       })
       const j = await res.json()
