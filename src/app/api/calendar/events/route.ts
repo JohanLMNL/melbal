@@ -5,11 +5,22 @@ import fs from 'fs'
 
 const SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
 
-function getAuth() {
+function getCredentials() {
+  // 1. Variable d'env (Vercel)
+  if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
+    return JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY)
+  }
+  // 2. Fichier local (dev)
   const keyPath = path.join(process.cwd(), 'google-service-account.json')
-  const credentials = JSON.parse(fs.readFileSync(keyPath, 'utf-8'))
+  if (fs.existsSync(keyPath)) {
+    return JSON.parse(fs.readFileSync(keyPath, 'utf-8'))
+  }
+  throw new Error('Aucune clé Google configurée (GOOGLE_SERVICE_ACCOUNT_KEY ou google-service-account.json)')
+}
+
+function getAuth() {
   return new google.auth.GoogleAuth({
-    credentials,
+    credentials: getCredentials(),
     scopes: SCOPES,
   })
 }
