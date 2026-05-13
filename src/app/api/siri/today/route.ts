@@ -60,11 +60,7 @@ export async function GET(request: NextRequest) {
 
   // Texte lisible par Siri
   const parts: string[] = []
-  parts.push(`${total} réservation${total > 1 ? 's' : ''} aujourd'hui pour ${totalGuests} couverts.`)
-  parts.push(`${byVenue.Melkior} chez Melkior, ${byVenue["Bal'tazar"]} chez Bal'tazar.`)
-  if (byStatus.en_attente > 0) parts.push(`${byStatus.en_attente} en attente.`)
-  if (byStatus.arrive > 0) parts.push(`${byStatus.arrive} arrivé${byStatus.arrive > 1 ? 's' : ''}.`)
-  if (byStatus.servi > 0) parts.push(`${byStatus.servi} servi${byStatus.servi > 1 ? 's' : ''}.`)
+  parts.push(`Il y a ${total} réservation${total > 1 ? 's' : ''} aujourd'hui, ${byVenue.Melkior} au Melkior et ${byVenue["Bal'tazar"]} au Bal'tazar pour ${totalGuests} personnes au total.`)
 
   return NextResponse.json({
     speech: parts.join(' '),
