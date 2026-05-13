@@ -1,0 +1,49 @@
+============================================
+  MelbalApp — Endpoints API Siri / Raccourcis
+============================================
+
+Base URL (prod) : https://ton-domaine-vercel.app
+Base URL (local) : http://localhost:3000
+
+Clé API : SIRI_API_KEY (voir .env.local ou Vercel)
+Auth : ?key=TA_CLE ou header x-api-key: TA_CLE
+
+--------------------------------------------
+1. RÉSUMÉ DES RÉSERVATIONS DU JOUR
+--------------------------------------------
+GET /api/siri/today
+GET /api/siri/today?venue=Melkior
+GET /api/siri/today?venue=Bal'tazar
+
+Réponse :
+{
+  "speech": "2 réservations aujourd'hui pour 10 couverts...",
+  "date": "2026-05-13",
+  "total": 2,
+  "totalGuests": 10,
+  "byStatus": { "en_attente": 1, "arrive": 1, "servi": 0, "termine": 0 },
+  "byVenue": { "Melkior": 1, "Bal'tazar": 1 },
+  "reservations": [{ "name": "Clément", "guests": 6, "venue": "Melkior", "status": "en_attente" }]
+}
+
+--------------------------------------------
+2. PROCHAINS ÉVÉNEMENTS (2 semaines)
+--------------------------------------------
+GET /api/siri/events
+
+Réponse :
+{
+  "speech": "3 événements à venir. Soirée Disco chez Melkior, samedi 17 mai...",
+  "total": 3,
+  "events": [{ "name": "Soirée Disco", "date": "2026-05-17", "venue": "Melkior" }]
+}
+
+--------------------------------------------
+RACCOURCI APPLE (Shortcuts)
+--------------------------------------------
+1. Obtenir le contenu de l'URL → GET https://ton-domaine.app/api/siri/today?key=TA_CLE
+2. Obtenir la valeur du dictionnaire → clé "speech"
+3. Énoncer le texte (ou Afficher le résultat)
+4. Nommer le raccourci "Réservations du jour"
+
+Dire : "Dis Siri, réservations du jour"

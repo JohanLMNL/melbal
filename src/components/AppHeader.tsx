@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
-import { Settings, LogOut, Shield, Calculator, Monitor, Calendar } from 'lucide-react'
+import { Settings, LogOut, Shield, Calculator, Monitor, Calendar, BarChart3 } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase, isBossOrAdmin } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
@@ -40,9 +40,14 @@ export function AppHeader() {
               <div className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md">
                 <div className="p-1">
                   {isBossOrAdmin(profile) && (
-                    <Link href="/admin" onClick={() => setOpen(false)} className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm hover:bg-accent hover:text-accent-foreground">
-                      <Shield className="h-4 w-4" /> Administration
-                    </Link>
+                    <>
+                      <Link href="/admin" onClick={() => setOpen(false)} className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm hover:bg-accent hover:text-accent-foreground">
+                        <Shield className="h-4 w-4" /> Administration
+                      </Link>
+                      <Link href="/data" onClick={() => setOpen(false)} className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm hover:bg-accent hover:text-accent-foreground">
+                        <BarChart3 className="h-4 w-4" /> Data
+                      </Link>
+                    </>
                   )}
                   <Link href="/calendrier" onClick={() => setOpen(false)} className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm hover:bg-accent hover:text-accent-foreground">
                     <Calendar className="h-4 w-4" /> Calendrier
