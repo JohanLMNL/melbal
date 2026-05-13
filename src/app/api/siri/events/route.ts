@@ -7,8 +7,9 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 function verifySiriKey(request: NextRequest): boolean {
-  const key = request.headers.get('x-api-key') || request.nextUrl.searchParams.get('key')
-  return key === process.env.SIRI_API_KEY
+  const key = (request.headers.get('x-api-key') || request.nextUrl.searchParams.get('key') || '').trim()
+  const envKey = (process.env.SIRI_API_KEY || '').trim()
+  return key === envKey
 }
 
 function getCredentials() {
