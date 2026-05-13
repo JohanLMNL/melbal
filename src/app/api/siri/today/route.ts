@@ -6,7 +6,9 @@ export const dynamic = 'force-dynamic'
 
 function verifySiriKey(request: NextRequest): boolean {
   const key = request.headers.get('x-api-key') || request.nextUrl.searchParams.get('key')
-  return key === process.env.SIRI_API_KEY
+  const envKey = process.env.SIRI_API_KEY
+  console.log('SIRI_API_KEY defined:', !!envKey, 'length:', envKey?.length, 'received key length:', key?.length, 'match:', key === envKey)
+  return key === envKey
 }
 
 function getAdmin() {
@@ -19,7 +21,10 @@ function getAdmin() {
 
 export async function GET(request: NextRequest) {
   if (!verifySiriKey(request)) {
-    return NextResponse.json({ error: 'Clé API invalide' }, { status: 401 })
+    return NextResponse.json({ 
+      error: 'Clé API invalide',
+      envKeyDefined: !!process.env.SIRI_API_KEY,
+    }, { status: 401 })
   }
 
   const supabase = getAdmin()
