@@ -63,6 +63,7 @@ export default function OfficePage() {
   const [reservedTables, setReservedTables] = useState<Record<number, { status: 'en_attente' | 'arrive' | 'servi', name: string, guests: number, servedByName?: string }>>({})
   const [planLoading, setPlanLoading] = useState(true)
   const [activeTooltip, setActiveTooltip] = useState<number | null>(null)
+  const [releaseConfirm, setReleaseConfirm] = useState<{ tableNumber: number; name: string; reservationId?: number } | null>(null)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => { loadReservations() }, [selectedDate, venue])
@@ -126,8 +127,8 @@ export default function OfficePage() {
   }, [reservations])
 
   // --- Plan ---
-  const loadPlanData = async () => {
-    setPlanLoading(true)
+  const loadPlanData = async (silent = false) => {
+    if (!silent) setPlanLoading(true)
     try {
       // Paralléliser les 2 requêtes principales
       const [tablesRes, reservationsRes] = await Promise.all([
@@ -166,7 +167,66 @@ export default function OfficePage() {
       })
       setReservedTables(reserved)
     } catch (e: any) { toast.error('Erreur', { description: e.message }) }
-    finally { setPlanLoading(false) }
+    finally { if (!silent) setPlanLoading(false) }
+  }
+
+  // --- Auto-refresh polling ---
+  useEffect(() => {
+    const refresh = async () => {
+      const { data } = await supabase
+        .from('reservations')
+        .select(`*, reservation_tables (table_number), reservation_consumptions (id, consumption_type_id, quantity, consumption_type:consumption_types(id, name, sort_order))`)
+        .eq('date', selectedDate)
+        .eq('venue', venue)
+        .order('created_at', { ascending: false })
+
+      if (data) {
+        const rows = data
+        const userIds = Array.from(new Set([...rows.map((r: any) => r.created_by).filter(Boolean), ...rows.map((r: any) => r.served_by).filter(Boolean)]))
+        let profilesMap: Record<string, { username: string; role: string }> = {}
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabase.from('profiles').select('id, username, role').in('id', userIds)
+          profiles?.forEach((p: any) => { profilesMap[p.id] = p })
+        }
+        setReservations(rows.map((r: any) => ({ ...r, created_by_profile: r.created_by ? profilesMap[r.created_by] ?? null : null, served_by_profile: r.served_by ? profilesMap[r.served_by] ?? null : null })))
+      }
+    }
+
+    const poll = setInterval(() => {
+      refresh()
+      loadPlanData(true)
+    }, 5000)
+    return () => clearInterval(poll)
+  }, [selectedDate, venue])
+
+  const handleTableClick = (t: TableWithPosition) => {
+    const info = reservedTables[t.table_number]
+    if (info) {
+      // Table réservée → demander confirmation pour libérer
+      setReleaseConfirm({ tableNumber: t.table_number, name: info.name })
+      return
+    }
+    // Table non réservée → toggle occupied
+    toggleOccupied(t.id, t.occupied)
+  }
+
+  const confirmRelease = async () => {
+    if (!releaseConfirm) return
+    try {
+      const { error } = await supabase
+        .from('reservation_tables')
+        .delete()
+        .eq('table_number', releaseConfirm.tableNumber)
+        .eq('venue', venue)
+        .eq('date', selectedDate)
+      if (error) throw error
+      toast.success(`Table ${releaseConfirm.tableNumber} libérée`)
+      setReleaseConfirm(null)
+      loadReservations()
+      loadPlanData()
+    } catch (e: any) {
+      toast.error('Erreur', { description: e.message })
+    }
   }
 
   const toggleOccupied = async (tableId: number, current: boolean) => {
@@ -188,9 +248,9 @@ export default function OfficePage() {
   const planSrc = venue === "Bal'tazar" ? '/plans/planTableBalta.png' : '/plans/planTableMelkior.png'
 
   const getTableStyle = (status?: string, isOccupied?: boolean) => {
-    if (status === 'en_attente') return 'bg-white text-red-700 border-red-600 cursor-default bg-[repeating-linear-gradient(45deg,transparent,transparent_3px,#dc2626_3px,#dc2626_6px)]'
-    if (status === 'arrive') return 'bg-red-500 text-white border-red-600 cursor-default'
-    if (status === 'servi') return 'bg-red-500 text-white border-4 border-green-500 cursor-default'
+    if (status === 'en_attente') return 'bg-white text-red-700 border-red-600 cursor-pointer bg-[repeating-linear-gradient(45deg,transparent,transparent_3px,#dc2626_3px,#dc2626_6px)]'
+    if (status === 'arrive') return 'bg-red-500 text-white border-red-600 cursor-pointer'
+    if (status === 'servi') return 'bg-red-500 text-white border-4 border-green-500 cursor-pointer'
     if (isOccupied) return 'bg-orange-500 text-white border-orange-600 cursor-pointer hover:bg-orange-600'
     return 'bg-white text-black border-black cursor-pointer hover:bg-gray-100 shadow-sm'
   }
@@ -353,11 +413,10 @@ export default function OfficePage() {
                         </div>
                         <button
                           type="button"
-                          className={`rounded-full border-2 text-xs font-bold flex items-center justify-center transition-colors w-8 h-8 ${getTableStyle(info?.status, t.occupied)}`}
-                          onClick={() => !isReserved && toggleOccupied(t.id, t.occupied)}
+                          className={`rounded-full border-2 text-xs font-bold flex items-center justify-center transition-colors w-8 h-8 ${getTableStyle(info?.status, t.occupied)} ${isReserved ? 'cursor-pointer' : ''}`}
+                          onClick={() => handleTableClick(t)}
                           onMouseEnter={() => setActiveTooltip(t.table_number)}
                           onMouseLeave={() => setActiveTooltip(null)}
-                          disabled={isReserved}
                         >
                           {t.table_number}
                         </button>
@@ -394,6 +453,26 @@ export default function OfficePage() {
           )}
         </div>
       </div>
+      {/* Dialog libérer table réservée */}
+      <Dialog open={!!releaseConfirm} onOpenChange={(open) => { if (!open) setReleaseConfirm(null) }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Libérer la table {releaseConfirm?.tableNumber}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Cette table est réservée par <span className="font-semibold text-foreground">{releaseConfirm?.name}</span>. Voulez-vous la libérer ?
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setReleaseConfirm(null)}>Annuler</Button>
+              <Button variant="destructive" onClick={confirmRelease}>Libérer</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

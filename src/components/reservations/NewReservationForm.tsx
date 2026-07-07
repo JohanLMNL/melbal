@@ -26,6 +26,7 @@ export function NewReservationForm({ onSuccess, defaultDate }: { onSuccess: () =
   const [allTables, setAllTables] = useState<Table[]>([])
   const [reservedNumbers, setReservedNumbers] = useState<number[]>([])
   const [reservedInfo, setReservedInfo] = useState<Record<number, { name: string; guests: number }>>({})
+  const [occupiedNumbers, setOccupiedNumbers] = useState<number[]>([])
   const [loading, setLoading] = useState(false)
   const [showTablePicker, setShowTablePicker] = useState(false)
 
@@ -43,8 +44,10 @@ export function NewReservationForm({ onSuccess, defaultDate }: { onSuccess: () =
       supabase.from('reservation_tables').select('table_number, reservations(name, guests)').eq('venue', formData.venue).eq('date', formData.date)
     ])
     const resNums = reservedRes.data?.map(rt => rt.table_number) || []
-    setAllTables(tablesRes.data || [])
+    const tablesData = tablesRes.data || []
+    setAllTables(tablesData)
     setReservedNumbers(resNums)
+    setOccupiedNumbers(tablesData.filter((t: any) => t.occupied && !resNums.includes(t.table_number)).map((t: any) => t.table_number))
     const info: Record<number, { name: string; guests: number }> = {}
     ;(reservedRes.data || []).forEach((rt: any) => {
       const r = rt.reservations
@@ -145,7 +148,7 @@ export function NewReservationForm({ onSuccess, defaultDate }: { onSuccess: () =
         <Dialog open={showTablePicker} onOpenChange={setShowTablePicker}>
           <DialogContent className="max-w-3xl">
             <DialogHeader><DialogTitle>Choisir la table – {formData.venue}</DialogTitle></DialogHeader>
-            <TablePlanPicker venue={formData.venue} tables={allTables} reserved={reservedNumbers} reservedInfo={reservedInfo} selected={formData.tables} onChange={(tables) => setFormData({ ...formData, tables })} />
+            <TablePlanPicker venue={formData.venue} tables={allTables} reserved={reservedNumbers} reservedInfo={reservedInfo} occupied={occupiedNumbers} selected={formData.tables} onChange={(tables) => setFormData({ ...formData, tables })} />
           </DialogContent>
         </Dialog>
       </div>

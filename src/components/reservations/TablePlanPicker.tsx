@@ -4,12 +4,13 @@ import Image from 'next/image'
 import type { Table } from '@/lib/supabase'
 
 export function TablePlanPicker({
-  venue, tables, reserved, reservedInfo, selected, onChange,
+  venue, tables, reserved, reservedInfo, occupied = [], selected, onChange,
 }: {
   venue: 'Melkior' | "Bal'tazar"
   tables: Table[]
   reserved: number[]
   reservedInfo: Record<number, { name: string; guests: number }>
+  occupied?: number[]
   selected: number[]
   onChange: (tables: number[]) => void
 }) {
@@ -46,10 +47,13 @@ export function TablePlanPicker({
   const unpositioned = list.filter(t => !hasPos(t))
 
   const renderButton = (t: any, isReserved: boolean, isSelected: boolean) => {
+    const isOccupied = !isReserved && occupied.includes(t.table_number)
     const reservedBorder = t.kind === 'vip' ? 'border-yellow-500' : t.kind === 'haute' ? 'border-indigo-500' : 'border-foreground'
     const base = isReserved
       ? `bg-red-600 text-white ${reservedBorder} border-2 opacity-70 cursor-not-allowed`
-      : pillClass(t.kind, isSelected)
+      : isOccupied
+        ? 'bg-orange-500 text-white border-orange-600 border-2'
+        : pillClass(t.kind, isSelected)
     return (
       <div key={t.id} className="relative group">
         <button
@@ -64,6 +68,11 @@ export function TablePlanPicker({
         {isReserved && reservedInfo?.[t.table_number] && (
           <div className="pointer-events-none hidden md:group-hover:block absolute left-1/2 -translate-x-1/2 -top-2 -translate-y-full z-50 whitespace-nowrap rounded bg-black/90 text-white text-xs py-1 px-2 shadow-md">
             {reservedInfo[t.table_number].name} • {reservedInfo[t.table_number].guests} pers.
+          </div>
+        )}
+        {isOccupied && (
+          <div className="pointer-events-none hidden md:group-hover:block absolute left-1/2 -translate-x-1/2 -top-2 -translate-y-full z-50 whitespace-nowrap rounded bg-black/90 text-white text-xs py-1 px-2 shadow-md">
+            Occupée
           </div>
         )}
       </div>
@@ -93,7 +102,10 @@ export function TablePlanPicker({
           </div>
         )}
       </div>
-      <div className="text-sm text-muted-foreground">Tables libres: {(tables?.length || 0) - (reserved?.length || 0)}</div>
+      <div className="text-sm text-muted-foreground flex gap-4 flex-wrap">
+        <span>Tables libres: {(tables?.length || 0) - (reserved?.length || 0) - (occupied?.length || 0)}</span>
+        {occupied.length > 0 && <span className="text-orange-500">Occupées: {occupied.length}</span>}
+      </div>
     </div>
   )
 }

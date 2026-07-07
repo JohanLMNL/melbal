@@ -42,6 +42,40 @@ export default function ReservationsPage() {
 
   useEffect(() => { loadReservations() }, [selectedDate, venueFilter])
 
+  // --- Auto-refresh polling ---
+  useEffect(() => {
+    const silentRefresh = async () => {
+      let query = supabase
+        .from('reservations')
+        .select('*, reservation_tables (table_number), reservation_consumptions (id, consumption_type_id, quantity, consumption_type:consumption_types(id, name, sort_order))')
+        .eq('date', selectedDate)
+        .order('created_at', { ascending: false })
+      if (venueFilter !== 'all') query = query.eq('venue', venueFilter)
+
+      const { data } = await query
+      if (data) {
+        const rows = data
+        const userIds = Array.from(new Set([
+          ...rows.map((r: any) => r.created_by).filter(Boolean),
+          ...rows.map((r: any) => r.served_by).filter(Boolean),
+        ]))
+        let profilesMap: Record<string, { username: string; role: string }> = {}
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabase.from('profiles').select('id, username, role').in('id', userIds)
+          profiles?.forEach((p: any) => { profilesMap[p.id] = p })
+        }
+        setReservations(rows.map((r: any) => ({
+          ...r,
+          created_by_profile: r.created_by ? profilesMap[r.created_by] ?? null : null,
+          served_by_profile: r.served_by ? profilesMap[r.served_by] ?? null : null,
+        })))
+      }
+    }
+
+    const poll = setInterval(silentRefresh, 5000)
+    return () => clearInterval(poll)
+  }, [selectedDate, venueFilter])
+
   const filteredReservations = useMemo(() => {
     let list = reservations || []
     if (kindFilter !== 'all') {
